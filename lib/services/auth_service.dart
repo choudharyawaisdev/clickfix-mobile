@@ -1,109 +1,131 @@
 import 'package:flutter/material.dart';
+import 'package:clickfix/services/api_service.dart';
 
 class ClickFixUser {
+  final int id;
   final String name;
   final String email;
-  final String role; // 'Customer', 'Worker', 'Admin'
-  final String password;
+  final String phoneNumber;
+  final String city;
+  final String role; // 'customer', 'worker', 'admin'
+  final int? serviceId;
+  final String? profilePicture;
+  final String? description;
+  final String address;
   Color avatarColor;
-  String address;
-  String city;
 
   ClickFixUser({
+    required this.id,
     required this.name,
     required this.email,
+    required this.phoneNumber,
+    required this.city,
     required this.role,
-    required this.password,
-    this.avatarColor = Colors.amber,
+    this.serviceId,
+    this.profilePicture,
+    this.description,
     this.address = '',
-    this.city = '',
+    this.avatarColor = Colors.amber,
   });
+
+  factory ClickFixUser.fromJson(Map<String, dynamic> json) {
+    Color color = Colors.teal;
+    final r = (json['role'] ?? 'customer').toString().toLowerCase();
+    if (r == 'admin') {
+      color = Colors.deepOrange;
+    } else if (r == 'customer') {
+      color = Colors.blue;
+    }
+
+    return ClickFixUser(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
+      phoneNumber: json['phone_number'] ?? '',
+      city: json['city'] ?? '',
+      role: json['role'] ?? 'customer',
+      serviceId: json['service_id'],
+      profilePicture: json['profile_picture'],
+      description: json['description'],
+      address: json['address'] ?? '',
+      avatarColor: color,
+    );
+  }
 }
 
 class AuthService {
-  // Singleton pattern
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
 
-  // Active user session
   ClickFixUser? currentUser;
 
-  // Mock memory database of registered users
-  final List<ClickFixUser> _usersDb = [
-    ClickFixUser(
-      name: 'Platform Admin',
-      email: 'admin@clickfix.com',
-      role: 'Admin',
-      password: 'admin123',
-      avatarColor: Colors.deepOrange,
-      address: 'Admin Headquarters',
-      city: 'Islamabad',
-    ),
-    ClickFixUser(
-      name: 'Hafiz Talha (Customer)',
-      email: 'customer@clickfix.com',
-      role: 'Customer',
-      password: 'customer123',
-      avatarColor: Colors.blue,
-      address: 'D-Ground Main Road',
-      city: 'Faisalabad',
-    ),
-    ClickFixUser(
-      name: 'Awais Choudhary (Pro)',
-      email: 'worker@clickfix.com',
-      role: 'Worker',
-      password: 'worker123',
-      avatarColor: Colors.teal,
-      address: 'Gulberg 3 Blocks',
-      city: 'Lahore',
-    ),
-  ];
-
-  /// Login attempt. Returns true if credentials match.
-  bool login(String email, String password) {
-    try {
-      final user = _usersDb.firstWhere(
-        (u) => u.email.trim().toLowerCase() == email.trim().toLowerCase() && u.password == password,
-      );
-      currentUser = user;
+  /// Logs in against the backend Laravel REST API.
+  Future<bool> login(String email, String password) async {
+    final result = await ApiService().login(email, password);
+    if (result['status'] == true && result.containsKey('data')) {
+      currentUser = ClickFixUser.fromJson(result['data']);
       return true;
-    } catch (_) {
-      return false;
     }
+    return false;
   }
 
-  /// Initial Registration step. Adds user to db, but setup is incomplete until step 2.
-  bool register(String name, String email, String password, String role) {
-    // Check if user already exists
-    final exists = _usersDb.any((u) => u.email.trim().toLowerCase() == email.trim().toLowerCase());
-    if (exists) return false;
-
-    final newUser = ClickFixUser(
+  /// Registers user against the backend Laravel REST API.
+  Future<bool> register({
+    required String name,
+    required String email,
+    required String phoneNumber,
+    required String city,
+    required String role,
+    int? serviceId,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final result = await ApiService().register(
       name: name,
       email: email,
-      role: role,
+      phoneNumber: phoneNumber,
+      city: city,
+      role: role.toLowerCase(),
+      serviceId: serviceId,
       password: password,
+      passwordConfirmation: passwordConfirmation,
     );
-    _usersDb.add(newUser);
-    currentUser = newUser;
-    return true;
-  }
 
-  /// Final Setup step. Save avatar, address, and city location.
-  void completeProfile(Color color, String address, String city) {
-    if (currentUser != null) {
-      currentUser!.avatarColor = color;
-      currentUser!.address = address;
-      currentUser!.city = city;
+    if (result['status'] == true && result.containsKey('data')) {
+      currentUser = ClickFixUser.fromJson(result['data']);
+      if (result.containsKey('access_token')) {
+        ApiService().setToken(result['access_token']);
+      }
+      return true;
     }
+    return false;
   }
 
-  /// Logout active session.
-  void logout() {
+  /// Setup final profile configurations on backend.
+  Future<bool> completeProfile(Color color, String address, String city) async {
+    if (currentUser == null) return false;
+    
+    final result = await ApiService().updateProfile(
+      name: currentUser!.name,
+      email: currentUser!.email,
+      city: city,
+      description: address, // Map street address details into description field
+    );
+
+    if (result['status'] == true && result.containsKey('data')) {
+      currentUser = ClickFixUser.fromJson(result['data']);
+      currentUser!.avatarColor = color; // Maintain selected theme color locally
+      return true;
+    }
+    return false;
+  }
+
+  /// Logs out of active backend session.
+  Future<void> logout() async {
+    await ApiService().logout();
     currentUser = null;
   }
 
-  /// Helper to check if someone is logged in.
   bool get isLoggedIn => currentUser != null;
 }

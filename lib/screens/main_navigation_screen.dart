@@ -79,33 +79,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         actions: [
           // Elegant Drawer Trigger Button
           Builder(
-            builder: (context) => Container(
-              margin: const EdgeInsets.only(right: 8),
-              child: TextButton.icon(
-                onPressed: () {
-                  Scaffold.of(context).openDrawer();
-                },
-                icon: const Icon(
-                  Icons.menu_open_rounded,
-                  color: ClickFixTheme.primaryAmber,
-                  size: 18,
-                ),
-                label: Text(
-                  'Sidebar Menu',
-                  style: GoogleFonts.outfit(
-                    color: ClickFixTheme.primaryAmber,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  backgroundColor: ClickFixTheme.primaryAmber.withOpacity(0.12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu_rounded, color: ClickFixTheme.primaryAmber),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+              tooltip: 'Open Sidebar Menu',
             ),
           ),
           IconButton(

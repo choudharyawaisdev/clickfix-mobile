@@ -4,9 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/location_service.dart';
-import 'package:clickfix/screens/booking_screen.dart';
+import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/screens/customer/job_details_screen.dart';
-import 'package:clickfix/screens/customer/worker_services_screen.dart';
 
 class CustomerIndexScreen extends StatefulWidget {
   const CustomerIndexScreen({super.key});
@@ -19,10 +18,6 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   String _selectedCity = 'Faisalabad';
   List<String> _cities = ['Faisalabad', 'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi'];
   bool _isLoadingCities = true;
-  
-  final PageController _sliderController = PageController(viewportFraction: 0.88);
-  int _activeSliderIndex = 0;
-  Timer? _sliderTimer;
 
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -30,25 +25,21 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   bool _showCitySuggestions = false;
   String _searchQuery = '';
 
+  // Currently selected service category (Electrician by default)
+  late ServiceModel _selectedService;
+
+  // Active Job Posts Carousel variables
+  List<dynamic> _apiJobs = [];
+  bool _isLoadingJobs = true;
+  final PageController _jobsSliderController = PageController(viewportFraction: 0.88);
+  int _activeJobIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    _selectedService = ServiceModel.services.first; // Electrician
     _loadCities();
-    
-    // Auto-scroll services slider every 4 seconds
-    _sliderTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (mounted && _sliderController.hasClients) {
-        int nextIndex = _activeSliderIndex + 1;
-        if (nextIndex >= ServiceModel.services.length) {
-          nextIndex = 0;
-        }
-        _sliderController.animateToPage(
-          nextIndex,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
+    _loadApiJobs();
 
     _searchController.addListener(() {
       final text = _searchController.text.trim();
@@ -71,7 +62,6 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     if (mounted) {
       setState(() {
         _cities = list;
-        // Make sure Faisalabad or the first fetched city is selected default
         if (!_cities.contains(_selectedCity) && _cities.isNotEmpty) {
           _selectedCity = _cities.first;
         }
@@ -80,10 +70,51 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     }
   }
 
+  Future<void> _loadApiJobs() async {
+    setState(() {
+      _isLoadingJobs = true;
+    });
+
+    try {
+      final response = await ApiService().getJobs(category: _selectedService.title);
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        List<dynamic> parsedJobs = [];
+        if (data is List) {
+          parsedJobs = data;
+        } else if (data is Map && data.containsKey('data')) {
+          final innerData = data['data'];
+          if (innerData is List) {
+            parsedJobs = innerData;
+          }
+        }
+        if (mounted) {
+          setState(() {
+            _apiJobs = parsedJobs;
+            _isLoadingJobs = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _apiJobs = [];
+            _isLoadingJobs = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _apiJobs = [];
+          _isLoadingJobs = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
-    _sliderTimer?.cancel();
-    _sliderController.dispose();
+    _jobsSliderController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -200,526 +231,458 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final services = ServiceModel.services; // exactly 15 services
+    final allServices = ServiceModel.services; // all 15 services
 
     return Scaffold(
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero / Search Section
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: isDark
-                      ? [ClickFixTheme.primaryDark, const Color(0xFF1E2124)]
-                      : [const Color(0xFFFFF9E6), Colors.white],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Hero / Location Search Section
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: isDark
+                        ? [ClickFixTheme.primaryDark, const Color(0xFF1E2124)]
+                        : [const Color(0xFFFFF9E6), Colors.white],
+                  ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your Location',
-                            style: GoogleFonts.outfit(
-                              fontSize: 12,
-                              color: ClickFixTheme.textMuted,
-                              fontWeight: FontWeight.bold,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Your Location',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: ClickFixTheme.textMuted,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          GestureDetector(
-                            onTap: _showCityPickerDialog,
-                            child: Row(
-                              children: [
-                                const Icon(Icons.location_on_rounded, color: ClickFixTheme.primaryAmber, size: 18),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _selectedCity,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : ClickFixTheme.textDark,
+                            const SizedBox(height: 2),
+                            GestureDetector(
+                              onTap: _showCityPickerDialog,
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.location_on_rounded, color: ClickFixTheme.primaryAmber, size: 18),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _selectedCity,
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : ClickFixTheme.textDark,
+                                    ),
                                   ),
-                                ),
-                                const Icon(Icons.arrow_drop_down_rounded, color: ClickFixTheme.primaryAmber),
-                              ],
+                                  const Icon(Icons.arrow_drop_down_rounded, color: ClickFixTheme.primaryAmber),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.shopping_bag_outlined),
+                            onPressed: () {},
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Reliable Home Services',
+                      style: GoogleFonts.outfit(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        height: 1.2,
+                        color: isDark ? Colors.white : ClickFixTheme.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Search Bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C3034) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          TextField(
+                            focusNode: _searchFocusNode,
+                            onChanged: (val) {
+                              setState(() {
+                                _searchQuery = val;
+                                _showCitySuggestions = val.isNotEmpty;
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Search for plumber, electrician...',
+                              prefixIcon: const Icon(Icons.search_rounded, color: ClickFixTheme.primaryAmber),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear_rounded),
+                                      onPressed: () {
+                                        setState(() {
+                                          _searchQuery = '';
+                                          _showCitySuggestions = false;
+                                        });
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                    if (_showCitySuggestions && _searchQuery.isNotEmpty)
                       Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        constraints: const BoxConstraints(maxHeight: 200),
                         decoration: BoxDecoration(
-                          color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
-                          shape: BoxShape.circle,
+                          color: isDark ? const Color(0xFF2C3034) : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
                         ),
-                        child: IconButton(
-                          icon: const Icon(Icons.shopping_bag_outlined),
-                          onPressed: () {
-                            // Quick navigate to bookings
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Professional Services\nAt Your Fingerprints',
-                    style: GoogleFonts.outfit(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      height: 1.2,
-                      color: isDark ? Colors.white : ClickFixTheme.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Book verified local professionals for repairs, maintenance, cleaning & renovate needs.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Search Bar
-                  Container(
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2C3034) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        TextField(
-                          focusNode: _searchFocusNode,
-                          onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                              _showCitySuggestions = val.isNotEmpty;
-                            });
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Search for plumber, electrician...',
-                            prefixIcon: const Icon(Icons.search_rounded, color: ClickFixTheme.primaryAmber),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear_rounded),
-                                    onPressed: () {
+                        child: ListView(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          children: allServices
+                              .where((s) => s.title.toLowerCase().contains(_searchQuery.toLowerCase()))
+                              .map((service) => ListTile(
+                                    leading: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
+                                    title: Text(service.title),
+                                    subtitle: Text('Category: ${service.category}'),
+                                    onTap: () {
                                       setState(() {
-                                        _searchQuery = '';
                                         _showCitySuggestions = false;
+                                        _searchQuery = '';
                                       });
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => JobDetailsScreen(service: service),
+                                        ),
+                                      );
                                     },
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                          ),
+                                  ))
+                              .toList(),
                         ),
-                      ],
+                      ),
+                  ],
+                ),
+              ),
+
+              // 2. Explore Services - 15 Grid Section
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Explore Services',
+                      style: GoogleFonts.outfit(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  if (_showCitySuggestions && _searchQuery.isNotEmpty)
                     Container(
-                      margin: const EdgeInsets.only(top: 6),
-                      constraints: const BoxConstraints(maxHeight: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2C3034) : Colors.white,
+                        color: ClickFixTheme.primaryAmber.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
                       ),
-                      child: ListView(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        children: services
-                            .where((s) => s.title.toLowerCase().contains(_searchQuery.toLowerCase()))
-                            .map((service) => ListTile(
-                                  leading: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
-                                  title: Text(service.title),
-                                  subtitle: Text('Category: ${service.category}'),
-                                  onTap: () {
-                                    setState(() {
-                                      _showCitySuggestions = false;
-                                      _searchQuery = '';
-                                    });
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => JobDetailsScreen(service: service),
-                                      ),
-                                    );
-                                  },
-                                ))
-                            .toList(),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // Slider Section for 15 Services
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0, top: 12, bottom: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Premium Home Services',
+                      child: Text(
+                        '15 Categories',
                         style: GoogleFonts.outfit(
-                          fontSize: 20,
+                          fontSize: 11,
                           fontWeight: FontWeight.bold,
+                          color: ClickFixTheme.primaryAmber,
                         ),
                       ),
-                      Container(
-                        margin: const EdgeInsets.only(right: 16),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: ClickFixTheme.primaryAmber.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '15 Services',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: ClickFixTheme.primaryAmber,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'Swipe to discover our specialized solutions',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: ClickFixTheme.textMuted,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Beautiful 15 services carousel
-            SizedBox(
-              height: 240,
-              child: PageView.builder(
-                controller: _sliderController,
-                itemCount: services.length,
-                onPageChanged: (index) {
-                  setState(() {
-                    _activeSliderIndex = index;
-                  });
-                },
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Text(
+                  'Select a service category to display active worker listings below.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: ClickFixTheme.textMuted,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Grid displaying exactly all 15 services
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.15,
+                ),
+                itemCount: allServices.length,
                 itemBuilder: (context, index) {
-                  final service = services[index];
-                  final isSelected = index == _activeSliderIndex;
-                  return AnimatedScale(
-                    scale: isSelected ? 1.0 : 0.95,
-                    duration: const Duration(milliseconds: 300),
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => JobDetailsScreen(service: service),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(24),
-                          gradient: LinearGradient(
-                            colors: isDark
-                                ? [const Color(0xFF2C3034), const Color(0xFF1E2124)]
-                                : [Colors.white, const Color(0xFFFDFDFD)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: ClickFixTheme.primaryAmber.withOpacity(isSelected ? (isDark ? 0.08 : 0.12) : 0),
-                              blurRadius: 16,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 6),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                          border: Border.all(
-                            color: isSelected
-                                ? ClickFixTheme.primaryAmber.withOpacity(0.6)
-                                : (isDark ? Colors.white10 : ClickFixTheme.borderGray.withOpacity(0.6)),
-                            width: isSelected ? 2.0 : 1.0,
-                          ),
+                  final service = allServices[index];
+                  final isSelected = service.id == _selectedService.id;
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedService = service;
+                      });
+                      _loadApiJobs();
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? ClickFixTheme.primaryAmber.withOpacity(0.15)
+                            : (isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? ClickFixTheme.primaryAmber
+                              : (isDark ? Colors.white10 : ClickFixTheme.borderGray.withOpacity(0.5)),
+                          width: isSelected ? 1.5 : 1.0,
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(24),
-                          child: Stack(
-                            children: [
-                              // Glassmorphic accent circles
-                              Positioned(
-                                right: -40,
-                                top: -40,
-                                child: CircleAvatar(
-                                  radius: 80,
-                                  backgroundColor: ClickFixTheme.primaryAmber.withOpacity(0.04),
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(20.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: ClickFixTheme.primaryAmber.withOpacity(0.18),
-                                            borderRadius: BorderRadius.circular(16),
-                                          ),
-                                          child: Icon(
-                                            service.iconData,
-                                            color: ClickFixTheme.primaryAmber,
-                                            size: 30,
-                                          ),
-                                        ),
-                                        Column(
-                                          crossAxisAlignment: CrossAxisAlignment.end,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.star_rounded, color: ClickFixTheme.primaryAmber, size: 18),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  service.rating,
-                                                  style: GoogleFonts.outfit(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green.withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(20),
-                                              ),
-                                              child: Text(
-                                                '${service.activeWorkers} Experts',
-                                                style: GoogleFonts.outfit(
-                                                  fontSize: 10,
-                                                  color: Colors.green,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          service.category.toUpperCase(),
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                            color: ClickFixTheme.primaryAmber,
-                                            letterSpacing: 1.0,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          service.title,
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w900,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          service.description,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 12,
-                                            color: isDark ? Colors.white60 : ClickFixTheme.textMuted,
-                                            height: 1.3,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Rs. ${service.basePrice.toStringAsFixed(0)} (Base Price)',
-                                          style: GoogleFonts.outfit(
-                                            fontWeight: FontWeight.w800,
-                                            fontSize: 15,
-                                            color: ClickFixTheme.primaryAmber,
-                                          ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              'Book Now',
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
-                                                color: isDark ? Colors.white70 : ClickFixTheme.textDark,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.arrow_forward_rounded, size: 16),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            service.iconData,
+                            color: isSelected ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
+                            size: 24,
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            service.title,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              color: isSelected
+                                  ? (isDark ? Colors.white : ClickFixTheme.textDark)
+                                  : (isDark ? Colors.white70 : ClickFixTheme.textDark),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
                 },
               ),
-            ),
 
-            // Indicator Dots
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                services.length,
-                (index) => Container(
-                  width: _activeSliderIndex == index ? 20 : 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  decoration: BoxDecoration(
-                    color: _activeSliderIndex == index
-                        ? ClickFixTheme.primaryAmber
-                        : (isDark ? Colors.white24 : Colors.black12),
-                    borderRadius: BorderRadius.circular(3),
+              const SizedBox(height: 28),
+
+              // 3. Worker Jobs Dynamic Slider Carousel
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                child: Text(
+                  '${_selectedService.title} Jobs Available',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
-            // Value Grid (Category shortcuts)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0),
-              child: Text(
-                'Explore Service Categories',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 4,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              children: [
-                _buildCategoryItem(context, 'Maintenance', Icons.handyman_rounded, isDark),
-                _buildCategoryItem(context, 'Appliances', Icons.kitchen_rounded, isDark),
-                _buildCategoryItem(context, 'Cleaning', Icons.cleaning_services_rounded, isDark),
-                _buildCategoryItem(context, 'Renovation', Icons.format_paint_rounded, isDark),
-                _buildCategoryItem(context, 'Security', Icons.videocam_rounded, isDark),
-                _buildCategoryItem(context, 'Vehicle', Icons.directions_car_rounded, isDark),
-                _buildCategoryItem(context, 'Energy', Icons.solar_power_rounded, isDark),
-                _buildCategoryItem(context, 'Tech Support', Icons.computer_rounded, isDark),
-              ],
-            ),
-            const SizedBox(height: 40),
-          ],
+              _isLoadingJobs
+                  ? const SizedBox(
+                      height: 190,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+                        ),
+                      ),
+                    )
+                  : _apiJobs.isEmpty
+                      ? _buildEmptyJobsState(isDark)
+                      : _buildLiveJobsCarousel(isDark),
+
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryItem(BuildContext context, String title, IconData icon, bool isDark) {
-    return InkWell(
-      onTap: () {
-        // Find first service of this category and show list
-        final categoryServices = ServiceModel.services.where((s) => s.category == title).toList();
-        if (categoryServices.isNotEmpty) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WorkerServicesScreen(serviceCategory: title),
+  /// Horizontal carousel displaying matching live jobs from API
+  Widget _buildLiveJobsCarousel(bool isDark) {
+    return SizedBox(
+      height: 190,
+      child: PageView.builder(
+        controller: _jobsSliderController,
+        itemCount: _apiJobs.length,
+        onPageChanged: (index) {
+          setState(() {
+            _activeJobIndex = index;
+          });
+        },
+        itemBuilder: (context, index) {
+          final job = _apiJobs[index];
+          final isSelected = index == _activeJobIndex;
+
+          final String title = job['title'] ?? 'Job Post Request';
+          final String price = job['price']?.toString() ?? '0';
+          final String location = job['location'] ?? 'Faisalabad';
+          final String desc = job['description'] ?? 'No descriptions offered.';
+          final String postedBy = job['user'] != null ? (job['user']['name'] ?? 'Provider') : 'Pro Provider';
+
+          return AnimatedScale(
+            scale: isSelected ? 1.0 : 0.96,
+            duration: const Duration(milliseconds: 300),
+            child: Card(
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Active Offer',
+                            style: GoogleFonts.outfit(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Text(
+                          'Rs. $price',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.w900, color: ClickFixTheme.primaryAmber, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      desc,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : ClickFixTheme.textMuted),
+                    ),
+                    const SizedBox(height: 6),
+                    const Divider(height: 1),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded, size: 14, color: ClickFixTheme.primaryAmber),
+                            const SizedBox(width: 4),
+                            Text(location, style: const TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                        Text(
+                          'By: $postedBy',
+                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: ClickFixTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           );
-        }
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray.withOpacity(0.5)),
-            ),
-            child: Icon(
-              icon,
-              color: ClickFixTheme.primaryAmber,
-              size: 24,
-            ),
+        },
+      ),
+    );
+  }
+
+  /// Widget displayed when there are no jobs returned from the live API
+  Widget _buildEmptyJobsState(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? Colors.white10 : ClickFixTheme.borderGray.withOpacity(0.5),
           ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.assignment_late_outlined,
+                color: isDark ? Colors.white38 : ClickFixTheme.textMuted.withOpacity(0.5),
+                size: 40,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No jobs available for ${_selectedService.title}',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white70 : ClickFixTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Check back later for new worker job listings.',
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: ClickFixTheme.textMuted,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

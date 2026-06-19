@@ -15,23 +15,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _cityController = TextEditingController(text: 'Faisalabad');
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   
   String _selectedRole = 'Customer'; // default selection
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
+    _cityController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _handleRegister() {
+  void _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       if (_passwordController.text != _confirmPasswordController.text) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -44,26 +49,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
-      final success = AuthService().register(
-        _nameController.text,
-        _emailController.text,
-        _passwordController.text,
-        _selectedRole,
+      setState(() {
+        _isLoading = true;
+      });
+
+      final success = await AuthService().register(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        city: _cityController.text.trim(),
+        role: _selectedRole.toLowerCase(),
+        serviceId: _selectedRole == 'Worker' ? 1 : null, // Default to first service for registration validation
+        password: _passwordController.text,
+        passwordConfirmation: _confirmPasswordController.text,
       );
 
-      if (success) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User with this email already exists!'),
-            backgroundColor: Colors.redAccent,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        if (success) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfileSetupScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registration failed. Email or phone might already exist!'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
@@ -81,7 +100,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
           child: Form(
             key: _formKey,
             child: Column(
@@ -102,7 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // Full Name
                 Text(
@@ -121,7 +140,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Email
                 Text(
@@ -142,7 +161,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+
+                // Phone Number
+                Text(
+                  'Phone Number',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: ClickFixTheme.primaryAmber,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(hintText: 'e.g. +923001234567'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return 'Please enter phone number';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // City
+                Text(
+                  'City Location',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: ClickFixTheme.primaryAmber,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _cityController,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) return 'Please enter city';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
 
                 // Choose Role
                 Text(
@@ -164,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: _selectedRole == 'Customer'
                                 ? ClickFixTheme.primaryAmber.withOpacity(0.15)
@@ -183,12 +242,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 Icons.person_rounded,
                                 color: _selectedRole == 'Customer' ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
                                 'Customer',
                                 style: GoogleFonts.outfit(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   color: _selectedRole == 'Customer'
                                       ? (isDark ? Colors.white : ClickFixTheme.textDark)
                                       : ClickFixTheme.textMuted,
@@ -208,7 +267,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           });
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: _selectedRole == 'Worker'
                                 ? ClickFixTheme.primaryAmber.withOpacity(0.15)
@@ -227,12 +286,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 Icons.engineering_rounded,
                                 color: _selectedRole == 'Worker' ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 4),
                               Text(
                                 'Worker (Pro)',
                                 style: GoogleFonts.outfit(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   color: _selectedRole == 'Worker'
                                       ? (isDark ? Colors.white : ClickFixTheme.textDark)
                                       : ClickFixTheme.textMuted,
@@ -245,7 +304,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Password
                 Text(
@@ -261,7 +320,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   validator: (value) {
-                    if (value == null || value.trim().length < 6) return 'Password must be at least 6 characters';
+                    if (value == null || value.trim().length < 8) return 'Password must be at least 8 characters';
                     return null;
                   },
                   decoration: InputDecoration(
@@ -278,7 +337,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
                 // Confirm Password
                 Text(
@@ -311,18 +370,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 32),
 
                 // Submit Button (Next)
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: _handleRegister,
-                    child: Text(
-                      'Next: Complete Setup',
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
+                    onPressed: _isLoading ? null : _handleRegister,
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryDark),
+                            ),
+                          )
+                        : Text(
+                            'Next: Complete Setup',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
                   ),
                 ),
                 const SizedBox(height: 30),
