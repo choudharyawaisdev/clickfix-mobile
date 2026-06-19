@@ -45,7 +45,7 @@ class ClickFixTheme {
         bodyMedium: GoogleFonts.outfit(fontSize: 14, color: textMuted),
         labelLarge: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: textDark),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: Colors.white,
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.05),
@@ -138,7 +138,7 @@ class ClickFixTheme {
         bodyMedium: GoogleFonts.outfit(fontSize: 14, color: Colors.white70),
         labelLarge: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: textLight),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: const Color(0xFF2C3034),
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -190,7 +190,7 @@ class ClickFixTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryAmber, width: 1.5),
         ),
-        hintStyle: GoogleFonts.outfit(color: Colors.white50, fontSize: 14),
+        hintStyle: GoogleFonts.outfit(color: Colors.white54, fontSize: 14),
       ),
     );
   }

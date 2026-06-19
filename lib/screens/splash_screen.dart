@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:clickfix/screens/main_navigation_screen.dart';
+import 'package:clickfix/screens/auth/login_screen.dart';
 import 'package:clickfix/widgets/clickfix_logo.dart';
 import 'package:clickfix/theme.dart';
 
@@ -35,18 +36,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _scaleAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: const Interval(0.0, 0.65, curve: Curves.backOut),
+        curve: const Interval(0.0, 0.65, curve: Curves.easeOutBack),
       ),
     );
 
     _animationController.forward();
 
-    // Transition to the main app screen after 2.5 seconds
+    // Transition to the Login Screen after 2.5 seconds
     Timer(const Duration(milliseconds: 2500), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const MainNavigationScreen(),
+            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
                 opacity: animation,

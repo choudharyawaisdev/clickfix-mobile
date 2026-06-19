@@ -263,7 +263,7 @@ class _HomeTabState extends State<HomeTab> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.outfit(
                         fontSize: 11,
-                        color: isDark ? Colors.white50 : ClickFixTheme.textMuted,
+                        color: isDark ? Colors.white54 : ClickFixTheme.textMuted,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
