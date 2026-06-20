@@ -4,6 +4,7 @@ import 'package:clickfix/screens/main_navigation_screen.dart';
 import 'package:clickfix/screens/auth/login_screen.dart';
 import 'package:clickfix/widgets/clickfix_logo.dart';
 import 'package:clickfix/theme.dart';
+import 'package:clickfix/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -42,12 +43,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _animationController.forward();
 
-    // Transition to the Login Screen after 2.5 seconds
-    Timer(const Duration(milliseconds: 2500), () {
+    // Transition to the appropriate Screen after 2.5 seconds
+    Timer(const Duration(milliseconds: 2500), () async {
       if (mounted) {
+        final isLoggedIn = await AuthService().loadSession();
+        if (!mounted) return;
+
+        final Widget nextScreen = isLoggedIn
+            ? const MainNavigationScreen()
+            : const LoginScreen();
+
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
+            pageBuilder: (context, animation, secondaryAnimation) => nextScreen,
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
                 opacity: animation,

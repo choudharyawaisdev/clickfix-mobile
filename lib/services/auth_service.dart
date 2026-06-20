@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:clickfix/services/api_service.dart';
 
 class ClickFixUser {
@@ -37,6 +39,10 @@ class ClickFixUser {
       color = Colors.blue;
     }
 
+    if (json.containsKey('avatar_color_value') && json['avatar_color_value'] != null) {
+      color = Color(json['avatar_color_value'] as int);
+    }
+
     return ClickFixUser(
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
@@ -51,6 +57,22 @@ class ClickFixUser {
       avatarColor: color,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone_number': phoneNumber,
+      'city': city,
+      'role': role,
+      'service_id': serviceId,
+      'profile_picture': profilePicture,
+      'description': description,
+      'address': address,
+      'avatar_color_value': avatarColor.value,
+    };
+  }
 }
 
 class AuthService {
@@ -60,11 +82,70 @@ class AuthService {
 
   ClickFixUser? currentUser;
 
+  /// Save active login session to local storage.
+  Future<void> saveSession(String token, ClickFixUser user) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+      await prefs.setString('user_data', json.encode(user.toJson()));
+      await prefs.setInt('login_timestamp', DateTime.now().millisecondsSinceEpoch);
+    } catch (e) {
+      debugPrint('Error saving session: $e');
+    }
+  }
+
+  /// Load login session from local storage if valid.
+  /// Valid session means session is less than 48 hours (2 days) old.
+  Future<bool> loadSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final userDataStr = prefs.getString('user_data');
+      final timestamp = prefs.getInt('login_timestamp');
+
+      if (token == null || userDataStr == null || timestamp == null) {
+        return false;
+      }
+
+      // Check if session has expired (48 hours = 2 days)
+      final loginTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+      final difference = DateTime.now().difference(loginTime);
+      if (difference.inHours >= 48) {
+        await clearSession();
+        return false;
+      }
+
+      // Restore session
+      ApiService().setToken(token);
+      currentUser = ClickFixUser.fromJson(json.decode(userDataStr));
+      return true;
+    } catch (e) {
+      debugPrint('Error loading session: $e');
+      return false;
+    }
+  }
+
+  /// Clear the local login session.
+  Future<void> clearSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      await prefs.remove('user_data');
+      await prefs.remove('login_timestamp');
+    } catch (e) {
+      debugPrint('Error clearing session: $e');
+    }
+  }
+
   /// Logs in against the backend Laravel REST API.
   Future<bool> login(String email, String password) async {
     final result = await ApiService().login(email, password);
     if (result['status'] == true && result.containsKey('data')) {
       currentUser = ClickFixUser.fromJson(result['data']);
+      final token = result['access_token'] ?? ApiService().token;
+      if (token != null) {
+        await saveSession(token, currentUser!);
+      }
       return true;
     }
     return false;
@@ -94,8 +175,10 @@ class AuthService {
 
     if (result['status'] == true && result.containsKey('data')) {
       currentUser = ClickFixUser.fromJson(result['data']);
-      if (result.containsKey('access_token')) {
-        ApiService().setToken(result['access_token']);
+      final token = result['access_token'] ?? ApiService().token;
+      if (token != null) {
+        ApiService().setToken(token);
+        await saveSession(token, currentUser!);
       }
       return true;
     }
@@ -116,6 +199,10 @@ class AuthService {
     if (result['status'] == true && result.containsKey('data')) {
       currentUser = ClickFixUser.fromJson(result['data']);
       currentUser!.avatarColor = color; // Maintain selected theme color locally
+      
+      // Update saved user session details in local storage
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_data', json.encode(currentUser!.toJson()));
       return true;
     }
     return false;
@@ -125,6 +212,7 @@ class AuthService {
   Future<void> logout() async {
     await ApiService().logout();
     currentUser = null;
+    await clearSession();
   }
 
   bool get isLoggedIn => currentUser != null;

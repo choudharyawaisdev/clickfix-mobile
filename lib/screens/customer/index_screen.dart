@@ -33,6 +33,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   bool _isLoadingJobs = true;
   final PageController _jobsSliderController = PageController(viewportFraction: 0.88);
   int _activeJobIndex = 0;
+  bool _isServicesExpanded = false;
 
   @override
   void initState() {
@@ -452,7 +453,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                   crossAxisSpacing: 10,
                   childAspectRatio: 1.15,
                 ),
-                itemCount: allServices.length,
+                itemCount: _isServicesExpanded ? allServices.length : 6,
                 itemBuilder: (context, index) {
                   final service = allServices[index];
                   final isSelected = service.id == _selectedService.id;
@@ -507,6 +508,37 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                     ),
                   );
                 },
+              ),
+
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isServicesExpanded = !_isServicesExpanded;
+                    });
+                  },
+                  icon: Icon(
+                    _isServicesExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: ClickFixTheme.primaryAmber,
+                  ),
+                  label: Text(
+                    _isServicesExpanded ? 'Show Less' : 'Load More',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      color: ClickFixTheme.primaryAmber,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    backgroundColor: ClickFixTheme.primaryAmber.withOpacity(0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 28),

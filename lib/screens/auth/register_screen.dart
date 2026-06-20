@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/auth_service.dart';
+import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/screens/auth/profile_setup_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -24,6 +25,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+
+  List<dynamic> _apiServices = [];
+  bool _isLoadingServices = false;
+  int? _selectedServiceId;
+
+  void _loadServices() async {
+    setState(() {
+      _isLoadingServices = true;
+    });
+    try {
+      final response = await ApiService().getServices();
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        if (data is List) {
+          setState(() {
+            _apiServices = data;
+            if (_apiServices.isNotEmpty) {
+              _selectedServiceId = _apiServices.first['id'] as int?;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching services: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingServices = false;
+        });
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -59,7 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: _phoneController.text.trim(),
         city: _cityController.text.trim(),
         role: _selectedRole.toLowerCase(),
-        serviceId: _selectedRole == 'Worker' ? 1 : null, // Default to first service for registration validation
+        serviceId: _selectedRole == 'Worker' ? _selectedServiceId : null,
         password: _passwordController.text,
         passwordConfirmation: _confirmPasswordController.text,
       );
@@ -265,6 +298,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           setState(() {
                             _selectedRole = 'Worker';
                           });
+                          if (_apiServices.isEmpty) {
+                            _loadServices();
+                          }
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -305,6 +341,58 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                if (_selectedRole == 'Worker') ...[
+                  Text(
+                    'Select Service Specialist Field',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: ClickFixTheme.primaryAmber,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _isLoadingServices
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+                            ),
+                          ),
+                        )
+                      : DropdownButtonFormField<int>(
+                          value: _selectedServiceId,
+                          items: _apiServices.map<DropdownMenuItem<int>>((service) {
+                            final serviceName = service['name'] ?? service['title'] ?? 'Specialist';
+                            return DropdownMenuItem<int>(
+                              value: service['id'] as int,
+                              child: Text(
+                                serviceName.toString(),
+                                style: GoogleFonts.outfit(fontSize: 14),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedServiceId = value;
+                            });
+                          },
+                          validator: (value) {
+                            if (_selectedRole == 'Worker' && value == null) {
+                              return 'Please select your service';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                  const SizedBox(height: 16),
+                ],
 
                 // Password
                 Text(
