@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
+import 'package:clickfix/services/api_service.dart';
 
 class WorkerJobworkerEditScreen extends StatefulWidget {
   const WorkerJobworkerEditScreen({super.key});
@@ -11,12 +12,14 @@ class WorkerJobworkerEditScreen extends StatefulWidget {
 
 class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _selectedCategory = 'Appliances';
-  final List<String> _categories = ['Maintenance', 'Appliances', 'Cleaning', 'Renovation', 'Security', 'Energy', 'Tech Support'];
   
   late TextEditingController _titleController;
   late TextEditingController _priceController;
   late TextEditingController _descController;
+
+  List<dynamic> _apiServices = [];
+  bool _isLoadingServices = true;
+  int? _selectedServiceId;
 
   @override
   void initState() {
@@ -24,6 +27,35 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
     _titleController = TextEditingController(text: 'AC Master Cleaning');
     _priceController = TextEditingController(text: '1500');
     _descController = TextEditingController(text: 'AC installation, gas charging, master cleaning, service inspection, compressor repairs.');
+    _loadServices();
+  }
+
+  void _loadServices() async {
+    try {
+      final response = await ApiService().getServices();
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        if (data is List) {
+          setState(() {
+            _apiServices = data;
+            if (_apiServices.isNotEmpty) {
+              final acService = _apiServices.firstWhere(
+                (element) => element['name']?.toString().toLowerCase().contains('ac') == true,
+                orElse: () => _apiServices.first,
+              );
+              _selectedServiceId = acService['id'] as int?;
+            }
+            _isLoadingServices = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading services: $e');
+    }
+    setState(() {
+      _isLoadingServices = false;
+    });
   }
 
   @override
@@ -75,27 +107,41 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
                 const SizedBox(height: 20),
 
                 Text(
-                  'Category',
+                  'Service',
                   style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
                 ),
                 const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: _selectedCategory,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                  items: _categories.map((cat) {
-                    return DropdownMenuItem<String>(
-                      value: cat,
-                      child: Text(cat),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedCategory = val!;
-                    });
-                  },
-                ),
+                _isLoadingServices
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+                          ),
+                        ),
+                      )
+                    : DropdownButtonFormField<int>(
+                        value: _selectedServiceId,
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        items: _apiServices.map((service) {
+                          final name = service['name'] ?? service['title'] ?? 'Service';
+                          return DropdownMenuItem<int>(
+                            value: service['id'] as int?,
+                            child: Text(name.toString()),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedServiceId = val;
+                          });
+                        },
+                        validator: (val) {
+                          if (val == null) return 'Please select service';
+                          return null;
+                        },
+                      ),
                 const SizedBox(height: 20),
 
                 Text(

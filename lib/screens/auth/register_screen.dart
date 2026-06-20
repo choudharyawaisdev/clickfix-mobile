@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/auth_service.dart';
 import 'package:clickfix/services/api_service.dart';
+import 'package:clickfix/services/location_service.dart';
 import 'package:clickfix/screens/auth/profile_setup_screen.dart';
 import 'package:clickfix/widgets/interactive_button.dart';
 
@@ -30,6 +31,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
   List<dynamic> _apiServices = [];
   bool _isLoadingServices = false;
   int? _selectedServiceId;
+
+  List<String> _allCities = [];
+  List<String> _filteredCities = [];
+  bool _isLoadingCities = true;
+  bool _showCityDropdown = false;
+  String _selectedCity = 'Faisalabad';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCities();
+    _cityController.addListener(_onCityChanged);
+  }
+
+  void _onCityChanged() {
+    final query = _cityController.text.trim();
+    if (query.isNotEmpty && query != _selectedCity) {
+      setState(() {
+        _filteredCities = _allCities
+            .where((city) => city.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+        _showCityDropdown = true;
+      });
+    } else if (query.isEmpty) {
+      setState(() {
+        _filteredCities = [];
+        _showCityDropdown = false;
+      });
+    }
+  }
+
+  Future<void> _loadCities() async {
+    final list = await LocationService.fetchCities();
+    if (mounted) {
+      setState(() {
+        _allCities = list;
+        _isLoadingCities = false;
+      });
+    }
+  }
 
   void _loadServices() async {
     setState(() {
@@ -61,6 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _cityController.removeListener(_onCityChanged);
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -398,22 +440,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          TextFormField(
-                            controller: _cityController,
-                            style: GoogleFonts.outfit(fontSize: 15),
-                            decoration: InputDecoration(
-                              hintText: 'Enter your city',
-                              prefixIcon: Icon(
-                                Icons.location_city_rounded,
-                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
-                                size: 20,
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) return 'Please enter city';
-                              return null;
-                            },
-                          ),
+                          _isLoadingCities
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Loading Pakistan cities...'),
+                                    ],
+                                  ),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    TextFormField(
+                                      controller: _cityController,
+                                      style: GoogleFonts.outfit(fontSize: 15),
+                                      decoration: InputDecoration(
+                                        hintText: 'Type city (e.g. Lahore, Karachi)',
+                                        prefixIcon: Icon(
+                                          Icons.location_city_rounded,
+                                          color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                          size: 20,
+                                        ),
+                                        suffixIcon: _allCities.contains(_cityController.text.trim())
+                                            ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                                            : null,
+                                      ),
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) return 'Please enter city';
+                                        return null;
+                                      },
+                                    ),
+                                    if (_showCityDropdown && _filteredCities.isNotEmpty)
+                                      Container(
+                                        constraints: const BoxConstraints(maxHeight: 180),
+                                        margin: const EdgeInsets.only(top: 4),
+                                        decoration: BoxDecoration(
+                                          color: isDark ? const Color(0xFF2C3034) : Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
+                                        ),
+                                        child: ListView.builder(
+                                          shrinkWrap: true,
+                                          itemCount: _filteredCities.length,
+                                          itemBuilder: (context, index) {
+                                            final city = _filteredCities[index];
+                                            return ListTile(
+                                              title: Text(city, style: GoogleFonts.outfit(fontSize: 14)),
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedCity = city;
+                                                  _cityController.text = city;
+                                                  _showCityDropdown = false;
+                                                });
+                                                FocusScope.of(context).unfocus();
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                  ],
+                                ),
                           const SizedBox(height: 18),
 
                           // Choose Role

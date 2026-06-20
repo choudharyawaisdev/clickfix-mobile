@@ -25,8 +25,8 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   bool _showCitySuggestions = false;
   String _searchQuery = '';
 
-  // Currently selected service category (Electrician by default)
-  late ServiceModel _selectedService;
+  // Currently selected service (Electrician by default)
+  ServiceModel _selectedService = ServiceModel.services.first;
 
   // Active Job Posts Carousel variables
   List<dynamic> _apiJobs = [];
@@ -35,12 +35,14 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   int _activeJobIndex = 0;
   bool _isServicesExpanded = false;
 
+  List<ServiceModel> _apiServices = [];
+  bool _isLoadingServices = true;
+
   @override
   void initState() {
     super.initState();
-    _selectedService = ServiceModel.services.first; // Electrician
     _loadCities();
-    _loadApiJobs();
+    _loadServices();
 
     _searchController.addListener(() {
       final text = _searchController.text.trim();
@@ -56,6 +58,49 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
         });
       }
     });
+  }
+
+  Future<void> _loadServices() async {
+    setState(() {
+      _isLoadingServices = true;
+    });
+    try {
+      final response = await ApiService().getServices();
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        if (data is List) {
+          final List<ServiceModel> loaded = data
+              .map((item) => ServiceModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+          
+          if (mounted) {
+            setState(() {
+              _apiServices = loaded;
+              if (_apiServices.isNotEmpty) {
+                _selectedService = _apiServices.first;
+              }
+              _isLoadingServices = false;
+            });
+            _loadApiJobs();
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading dynamic services: $e');
+    }
+    
+    // Fallback to static list if API fails
+    if (mounted) {
+      setState(() {
+        _apiServices = ServiceModel.services;
+        if (_apiServices.isNotEmpty) {
+          _selectedService = _apiServices.first;
+        }
+        _isLoadingServices = false;
+      });
+      _loadApiJobs();
+    }
   }
 
   Future<void> _loadCities() async {
@@ -232,7 +277,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final allServices = ServiceModel.services; // all 15 services
+    final allServices = _apiServices.isNotEmpty ? _apiServices : ServiceModel.services;
 
     return Scaffold(
       body: SafeArea(
@@ -377,7 +422,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                               .map((service) => ListTile(
                                     leading: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
                                     title: Text(service.title),
-                                    subtitle: Text('Category: ${service.category}'),
+                                    subtitle: Text('Base Rate: Rs. ${service.basePrice.toStringAsFixed(0)}'),
                                     onTap: () {
                                       setState(() {
                                         _showCitySuggestions = false;
@@ -418,7 +463,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '15 Categories',
+                        '${allServices.length} Services',
                         style: GoogleFonts.outfit(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -433,7 +478,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Text(
-                  'Select a service category to display active worker listings below.',
+                  'Select a service to display active worker listings below.',
                   style: GoogleFonts.outfit(
                     fontSize: 12,
                     color: ClickFixTheme.textMuted,
@@ -442,73 +487,84 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Grid displaying exactly all 15 services
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 1.15,
-                ),
-                itemCount: _isServicesExpanded ? allServices.length : 6,
-                itemBuilder: (context, index) {
-                  final service = allServices[index];
-                  final isSelected = service.id == _selectedService.id;
-
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedService = service;
-                      });
-                      _loadApiJobs();
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? ClickFixTheme.primaryAmber.withOpacity(0.15)
-                            : (isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: isSelected
-                              ? ClickFixTheme.primaryAmber
-                              : (isDark ? Colors.white10 : ClickFixTheme.borderGray.withOpacity(0.5)),
-                          width: isSelected ? 1.5 : 1.0,
+              // Grid displaying dynamically fetched services
+              _isLoadingServices
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24.0),
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
                         ),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            service.iconData,
-                            color: isSelected ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
-                            size: 24,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            service.title,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
-                              fontSize: 11,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    )
+                  : GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 1.15,
+                      ),
+                      itemCount: _isServicesExpanded
+                          ? allServices.length
+                          : (allServices.length > 6 ? 6 : allServices.length),
+                      itemBuilder: (context, index) {
+                        final service = allServices[index];
+                        final isSelected = service.id == _selectedService.id;
+
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedService = service;
+                            });
+                            _loadApiJobs();
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            decoration: BoxDecoration(
                               color: isSelected
-                                  ? (isDark ? Colors.white : ClickFixTheme.textDark)
-                                  : (isDark ? Colors.white70 : ClickFixTheme.textDark),
+                                  ? ClickFixTheme.primaryAmber.withOpacity(0.15)
+                                  : (isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected
+                                    ? ClickFixTheme.primaryAmber
+                                    : (isDark ? Colors.white10 : ClickFixTheme.borderGray.withOpacity(0.5)),
+                                width: isSelected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  service.iconData,
+                                  color: isSelected ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
+                                  size: 24,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  service.title,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                    color: isSelected
+                                        ? (isDark ? Colors.white : ClickFixTheme.textDark)
+                                        : (isDark ? Colors.white70 : ClickFixTheme.textDark),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
 
               const SizedBox(height: 12),
               Center(

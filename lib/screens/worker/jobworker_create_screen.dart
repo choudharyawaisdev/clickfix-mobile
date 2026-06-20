@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
+import 'package:clickfix/services/api_service.dart';
 
 class WorkerJobworkerCreateScreen extends StatefulWidget {
   const WorkerJobworkerCreateScreen({super.key});
@@ -11,8 +12,39 @@ class WorkerJobworkerCreateScreen extends StatefulWidget {
 
 class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _selectedCategory = 'Maintenance';
-  final List<String> _categories = ['Maintenance', 'Appliances', 'Cleaning', 'Renovation', 'Security', 'Energy', 'Tech Support'];
+  List<dynamic> _apiServices = [];
+  bool _isLoadingServices = true;
+  int? _selectedServiceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+  }
+
+  void _loadServices() async {
+    try {
+      final response = await ApiService().getServices();
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        if (data is List) {
+          setState(() {
+            _apiServices = data;
+            if (_apiServices.isNotEmpty) {
+              _selectedServiceId = _apiServices.first['id'] as int?;
+            }
+            _isLoadingServices = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading services: $e');
+    }
+    setState(() {
+      _isLoadingServices = false;
+    });
+  }
   
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -68,27 +100,41 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                 const SizedBox(height: 20),
 
                 Text(
-                  'Category',
+                  'Service',
                   style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
                 ),
                 const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: _selectedCategory,
-                  decoration: const InputDecoration(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                  items: _categories.map((cat) {
-                    return DropdownMenuItem<String>(
-                      value: cat,
-                      child: Text(cat),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedCategory = val!;
-                    });
-                  },
-                ),
+                _isLoadingServices
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+                          ),
+                        ),
+                      )
+                    : DropdownButtonFormField<int>(
+                        value: _selectedServiceId,
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                        items: _apiServices.map((service) {
+                          final name = service['name'] ?? service['title'] ?? 'Service';
+                          return DropdownMenuItem<int>(
+                            value: service['id'] as int?,
+                            child: Text(name.toString()),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedServiceId = val;
+                          });
+                        },
+                        validator: (val) {
+                          if (val == null) return 'Please select service';
+                          return null;
+                        },
+                      ),
                 const SizedBox(height: 20),
 
                 Text(

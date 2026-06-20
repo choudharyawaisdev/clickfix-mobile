@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
+import 'package:clickfix/services/location_service.dart';
 
 // Simple in-memory session manager for booked services
 class BookingSession {
@@ -62,16 +63,95 @@ class _BookingScreenState extends State<BookingScreen> {
     '06:00 PM - 08:00 PM',
   ];
 
-  final List<String> _cities = ['Faisalabad', 'Karachi', 'Lahore', 'Islamabad', 'Rawalpindi'];
+  List<String> _allCities = [];
+  List<String> _filteredCities = [];
+  bool _isLoadingCities = true;
+  bool _showCityDropdown = false;
+  final TextEditingController _citySearchController = TextEditingController(text: 'Faisalabad');
+
+  List<String> _colonies = [];
+  List<String> _filteredColonies = [];
+  bool _isLoadingColonies = false;
+  bool _showColonyDropdown = false;
+  final TextEditingController _colonySearchController = TextEditingController();
+  String _selectedColony = '';
 
   @override
   void initState() {
     super.initState();
     _selectedService = widget.initialService;
+    _loadCities();
+    _loadColonies('Faisalabad');
+    
+    _citySearchController.addListener(_onCitySearchChanged);
+    _colonySearchController.addListener(_onColonySearchChanged);
+  }
+
+  void _onCitySearchChanged() {
+    final query = _citySearchController.text.trim();
+    if (query.isNotEmpty && query != _selectedCity) {
+      setState(() {
+        _filteredCities = _allCities
+            .where((city) => city.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+        _showCityDropdown = true;
+      });
+    } else if (query.isEmpty) {
+      setState(() {
+        _filteredCities = [];
+        _showCityDropdown = false;
+      });
+    }
+  }
+
+  void _onColonySearchChanged() {
+    final query = _colonySearchController.text.trim();
+    if (query.isNotEmpty && query != _selectedColony) {
+      setState(() {
+        _filteredColonies = _colonies
+            .where((col) => col.toLowerCase().contains(query.toLowerCase()))
+            .toList();
+        _showColonyDropdown = true;
+      });
+    } else if (query.isEmpty) {
+      setState(() {
+        _filteredColonies = [];
+        _showColonyDropdown = false;
+      });
+    }
+  }
+
+  Future<void> _loadCities() async {
+    final list = await LocationService.fetchCities();
+    if (mounted) {
+      setState(() {
+        _allCities = list;
+        _isLoadingCities = false;
+      });
+    }
+  }
+
+  Future<void> _loadColonies(String city) async {
+    setState(() {
+      _isLoadingColonies = true;
+      _selectedColony = '';
+      _colonySearchController.clear();
+    });
+    final list = await LocationService.fetchColoniesForCity(city);
+    if (mounted) {
+      setState(() {
+        _colonies = list;
+        _isLoadingColonies = false;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _citySearchController.removeListener(_onCitySearchChanged);
+    _colonySearchController.removeListener(_onColonySearchChanged);
+    _citySearchController.dispose();
+    _colonySearchController.dispose();
     _nameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
@@ -113,7 +193,7 @@ class _BookingScreenState extends State<BookingScreen> {
         'icon': _selectedService!.iconData,
         'date': '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
         'time': _selectedTimeSlot,
-        'address': '${_addressController.text}, $_selectedCity',
+        'address': '${_addressController.text.trim()}, ${_colonySearchController.text.trim()}, $_selectedCity',
         'status': 'Requested',
         'price': _selectedService!.basePrice,
         'expert': 'Finding best match...',
@@ -312,35 +392,158 @@ class _BookingScreenState extends State<BookingScreen> {
                     style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  // City selector dropdown
-                  DropdownButtonFormField<String>(
-                    value: _selectedCity,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.location_city_outlined),
-                    ),
-                    items: _cities.map((city) {
-                      return DropdownMenuItem(
-                        value: city,
-                        child: Text(city),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        _selectedCity = val!;
-                      });
-                    },
+                  
+                  // City Selector
+                  Text(
+                    'City',
+                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
                   ),
-                  const SizedBox(height: 12),
-                  // Full Address
+                  const SizedBox(height: 6),
+                  _isLoadingCities
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _citySearchController,
+                              style: GoogleFonts.outfit(fontSize: 15),
+                              decoration: InputDecoration(
+                                hintText: 'Search city (e.g. Lahore, Karachi)',
+                                prefixIcon: const Icon(Icons.location_city_outlined),
+                                suffixIcon: _allCities.contains(_citySearchController.text.trim())
+                                    ? const Icon(Icons.check_circle_rounded, color: Colors.green)
+                                    : null,
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter or select a city';
+                                }
+                                return null;
+                              },
+                            ),
+                            if (_showCityDropdown && _filteredCities.isNotEmpty)
+                              Container(
+                                constraints: const BoxConstraints(maxHeight: 180),
+                                margin: const EdgeInsets.only(top: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF2C3034) : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
+                                ),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: _filteredCities.length,
+                                  itemBuilder: (context, index) {
+                                    final city = _filteredCities[index];
+                                    return ListTile(
+                                      title: Text(city, style: GoogleFonts.outfit(fontSize: 14)),
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedCity = city;
+                                          _citySearchController.text = city;
+                                          _showCityDropdown = false;
+                                        });
+                                        _loadColonies(city);
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Colony Selector
+                  Text(
+                    'Colony / Area / Sector',
+                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                  ),
+                  const SizedBox(height: 6),
+                  _isLoadingColonies
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextFormField(
+                              controller: _colonySearchController,
+                              style: GoogleFonts.outfit(fontSize: 15),
+                              decoration: const InputDecoration(
+                                hintText: 'Search or type colony (e.g. DHA, Gulberg, D-Ground)',
+                                prefixIcon: Icon(Icons.holiday_village_outlined),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter or select your colony/area';
+                                }
+                                return null;
+                              },
+                            ),
+                            if (_showColonyDropdown && _filteredColonies.isNotEmpty)
+                              Container(
+                                constraints: const BoxConstraints(maxHeight: 180),
+                                margin: const EdgeInsets.only(top: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF2C3034) : Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
+                                ),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: _filteredColonies.length,
+                                  itemBuilder: (context, index) {
+                                    final col = _filteredColonies[index];
+                                    return ListTile(
+                                      title: Text(col, style: GoogleFonts.outfit(fontSize: 14)),
+                                      onTap: () {
+                                        setState(() {
+                                          _selectedColony = col;
+                                          _colonySearchController.text = col;
+                                          _showColonyDropdown = false;
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                              ),
+                          ],
+                        ),
+
+                  const SizedBox(height: 16),
+                  
+                  // Street Details
+                  Text(
+                    'Street / House Number / Suite',
+                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                  ),
+                  const SizedBox(height: 6),
                   TextFormField(
                     controller: _addressController,
                     decoration: const InputDecoration(
-                      hintText: 'Street number, house number, area...',
-                      prefixIcon: Icon(Icons.map_outlined),
+                      hintText: 'e.g. House #102, Street 3',
+                      prefixIcon: Icon(Icons.home_outlined),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your service address';
+                        return 'Please enter your street address/house number';
                       }
                       return null;
                     },

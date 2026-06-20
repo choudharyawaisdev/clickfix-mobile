@@ -21,6 +21,59 @@ class ServiceModel {
     this.activeWorkers = '15+',
   });
 
+  factory ServiceModel.fromJson(Map<String, dynamic> json) {
+    final dynamic rawId = json['id'];
+    final String idVal = rawId != null ? rawId.toString() : '';
+    final String titleVal = json['name'] ?? json['title'] ?? 'Service';
+    final String descVal = json['description'] ?? 'No description available.';
+    final double priceVal = double.tryParse(json['price']?.toString() ?? json['base_price']?.toString() ?? '500') ?? 500.0;
+    
+    IconData icon = Icons.construction_rounded;
+    final lowercaseTitle = titleVal.toLowerCase();
+    if (lowercaseTitle.contains('electrician') || lowercaseTitle.contains('electrical')) {
+      icon = Icons.electrical_services_rounded;
+    } else if (lowercaseTitle.contains('plumb')) {
+      icon = Icons.plumbing_rounded;
+    } else if (lowercaseTitle.contains('ac ') || lowercaseTitle.contains('ac_') || lowercaseTitle.contains('air cond') || lowercaseTitle == 'ac') {
+      icon = Icons.ac_unit_rounded;
+    } else if (lowercaseTitle.contains('carpent')) {
+      icon = Icons.handyman_rounded;
+    } else if (lowercaseTitle.contains('clean')) {
+      icon = Icons.cleaning_services_rounded;
+    } else if (lowercaseTitle.contains('paint')) {
+      icon = Icons.format_paint_rounded;
+    } else if (lowercaseTitle.contains('solar')) {
+      icon = Icons.solar_power_rounded;
+    } else if (lowercaseTitle.contains('cctv') || lowercaseTitle.contains('camera')) {
+      icon = Icons.videocam_rounded;
+    } else if (lowercaseTitle.contains('car ') || lowercaseTitle.contains('auto') || lowercaseTitle.contains('vehicle')) {
+      icon = Icons.directions_car_rounded;
+    } else if (lowercaseTitle.contains('it ') || lowercaseTitle.contains('computer') || lowercaseTitle.contains('wifi') || lowercaseTitle.contains('tech support')) {
+      icon = Icons.computer_rounded;
+    } else if (lowercaseTitle.contains('pest')) {
+      icon = Icons.bug_report_rounded;
+    } else if (lowercaseTitle.contains('appliance') || lowercaseTitle.contains('fridge') || lowercaseTitle.contains('kitchen')) {
+      icon = Icons.kitchen_rounded;
+    } else if (lowercaseTitle.contains('gard')) {
+      icon = Icons.yard_rounded;
+    } else if (lowercaseTitle.contains('mason')) {
+      icon = Icons.foundation_rounded;
+    } else if (lowercaseTitle.contains('move') || lowercaseTitle.contains('pack')) {
+      icon = Icons.local_shipping_rounded;
+    }
+
+    return ServiceModel(
+      id: idVal,
+      title: titleVal,
+      category: json['category'] ?? 'Services',
+      iconData: icon,
+      description: descVal,
+      basePrice: priceVal,
+      rating: json['rating']?.toString() ?? '4.9',
+      activeWorkers: json['active_workers']?.toString() ?? '15+',
+    );
+  }
+
   static const List<ServiceModel> services = [
     ServiceModel(
       id: 'electrician',
