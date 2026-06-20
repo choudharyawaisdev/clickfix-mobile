@@ -4,6 +4,7 @@ import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/auth_service.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/screens/auth/profile_setup_screen.dart';
+import 'package:clickfix/widgets/interactive_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -120,372 +121,501 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Widget _buildRoleCard({
+    required String role,
+    required IconData icon,
+    required String label,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    final isSelected = _selectedRole == role;
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? ClickFixTheme.primaryAmber.withOpacity(isDark ? 0.15 : 0.1)
+                : (isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? ClickFixTheme.primaryAmber
+                  : (isDark ? Colors.white.withOpacity(0.08) : ClickFixTheme.borderGray),
+              width: isSelected ? 2.0 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: ClickFixTheme.primaryAmber.withOpacity(isDark ? 0.15 : 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    )
+                  ]
+                : [],
+          ),
+          child: Column(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? ClickFixTheme.primaryAmber.withOpacity(0.2)
+                      : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 24,
+                  color: isSelected ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: isSelected
+                      ? (isDark ? Colors.white : ClickFixTheme.textDark)
+                      : ClickFixTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? ClickFixTheme.primaryDark : Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: isDark ? Colors.white : ClickFixTheme.textDark,
+            size: 20,
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Create Account',
-                  style: GoogleFonts.outfit(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          // Background elegant gradient
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [const Color(0xFF15181B), ClickFixTheme.primaryDark]
+                      : [const Color(0xFFFAFAFA), const Color(0xFFF5F7FA)],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Join ClickFix as a client or a service provider.',
-                  style: GoogleFonts.outfit(
-                    color: ClickFixTheme.textMuted,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Full Name
-                Text(
-                  'Full Name',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _nameController,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Please enter your name';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Email
-                Text(
-                  'Email Address',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Please enter email';
-                    if (!value.contains('@')) return 'Please enter valid email';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Phone Number
-                Text(
-                  'Phone Number',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(hintText: 'e.g. +923001234567'),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Please enter phone number';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // City
-                Text(
-                  'City Location',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _cityController,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Please enter city';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Choose Role
-                Text(
-                  'Register As',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedRole = 'Customer';
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _selectedRole == 'Customer'
-                                ? ClickFixTheme.primaryAmber.withOpacity(0.15)
-                                : (isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedRole == 'Customer'
-                                  ? ClickFixTheme.primaryAmber
-                                  : (isDark ? Colors.white10 : ClickFixTheme.borderGray),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.person_rounded,
-                                color: _selectedRole == 'Customer' ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Customer',
-                                style: GoogleFonts.outfit(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: _selectedRole == 'Customer'
-                                      ? (isDark ? Colors.white : ClickFixTheme.textDark)
-                                      : ClickFixTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedRole = 'Worker';
-                          });
-                          if (_apiServices.isEmpty) {
-                            _loadServices();
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _selectedRole == 'Worker'
-                                ? ClickFixTheme.primaryAmber.withOpacity(0.15)
-                                : (isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedRole == 'Worker'
-                                  ? ClickFixTheme.primaryAmber
-                                  : (isDark ? Colors.white10 : ClickFixTheme.borderGray),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.engineering_rounded,
-                                color: _selectedRole == 'Worker' ? ClickFixTheme.primaryAmber : ClickFixTheme.textMuted,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Worker (Pro)',
-                                style: GoogleFonts.outfit(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: _selectedRole == 'Worker'
-                                      ? (isDark ? Colors.white : ClickFixTheme.textDark)
-                                      : ClickFixTheme.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                if (_selectedRole == 'Worker') ...[
-                  Text(
-                    'Select Service Specialist Field',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: ClickFixTheme.primaryAmber,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _isLoadingServices
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
-                            ),
-                          ),
-                        )
-                      : DropdownButtonFormField<int>(
-                          value: _selectedServiceId,
-                          items: _apiServices.map<DropdownMenuItem<int>>((service) {
-                            final serviceName = service['name'] ?? service['title'] ?? 'Specialist';
-                            return DropdownMenuItem<int>(
-                              value: service['id'] as int,
-                              child: Text(
-                                serviceName.toString(),
-                                style: GoogleFonts.outfit(fontSize: 14),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedServiceId = value;
-                            });
-                          },
-                          validator: (value) {
-                            if (_selectedRole == 'Worker' && value == null) {
-                              return 'Please select your service';
-                            }
-                            return null;
-                          },
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Password
-                Text(
-                  'Password',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  validator: (value) {
-                    if (value == null || value.trim().length < 8) return 'Password must be at least 8 characters';
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                        color: ClickFixTheme.textMuted,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Confirm Password
-                Text(
-                  'Confirm Password',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: ClickFixTheme.primaryAmber,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  obscureText: _obscureConfirmPassword,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Please confirm your password';
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                        color: ClickFixTheme.textMuted,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
-                        });
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // Submit Button (Next)
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleRegister,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryDark),
-                            ),
-                          )
-                        : Text(
-                            'Next: Complete Setup',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                          ),
-                  ),
-                ),
-                const SizedBox(height: 30),
-              ],
+              ),
             ),
           ),
-        ),
+          // Glowing circle top right
+          Positioned(
+            top: -120,
+            right: -60,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: ClickFixTheme.primaryAmber.withOpacity(isDark ? 0.08 : 0.04),
+              ),
+            ),
+          ),
+          // Glowing circle bottom left
+          Positioned(
+            bottom: -150,
+            left: -80,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: ClickFixTheme.primaryAmber.withOpacity(isDark ? 0.04 : 0.02),
+              ),
+            ),
+          ),
+          // Main scrollable view
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Create Account',
+                      style: GoogleFonts.outfit(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : ClickFixTheme.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Join ClickFix as a client or a service provider.',
+                      style: GoogleFonts.outfit(
+                        color: ClickFixTheme.textMuted,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Card Panel for Form
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 28.0),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2C3034).withOpacity(0.85) : Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withOpacity(0.08) : ClickFixTheme.borderGray.withOpacity(0.6),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(isDark ? 0.25 : 0.04),
+                            blurRadius: 24,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Full Name
+                          Text(
+                            'Full Name',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _nameController,
+                            style: GoogleFonts.outfit(fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: 'Enter your full name',
+                              prefixIcon: Icon(
+                                Icons.person_outline_rounded,
+                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                size: 20,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'Please enter your name';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Email
+                          Text(
+                            'Email Address',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: GoogleFonts.outfit(fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: 'Enter your email',
+                              prefixIcon: Icon(
+                                Icons.mail_outline_rounded,
+                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                size: 20,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'Please enter email';
+                              if (!value.contains('@')) return 'Please enter valid email';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Phone Number
+                          Text(
+                            'Phone Number',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            style: GoogleFonts.outfit(fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. +923001234567',
+                              prefixIcon: Icon(
+                                Icons.phone_outlined,
+                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                size: 20,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'Please enter phone number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // City
+                          Text(
+                            'City Location',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _cityController,
+                            style: GoogleFonts.outfit(fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: 'Enter your city',
+                              prefixIcon: Icon(
+                                Icons.location_city_rounded,
+                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                size: 20,
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'Please enter city';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Choose Role
+                          Text(
+                            'Register As',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              _buildRoleCard(
+                                role: 'Customer',
+                                icon: Icons.person_rounded,
+                                label: 'Customer',
+                                isDark: isDark,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRole = 'Customer';
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 16),
+                              _buildRoleCard(
+                                role: 'Worker',
+                                icon: Icons.engineering_rounded,
+                                label: 'Worker (Pro)',
+                                isDark: isDark,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedRole = 'Worker';
+                                  });
+                                  if (_apiServices.isEmpty) {
+                                    _loadServices();
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+
+                          if (_selectedRole == 'Worker') ...[
+                            Text(
+                              'Select Service Field',
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: ClickFixTheme.primaryAmber,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            _isLoadingServices
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(8.0),
+                                      child: CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+                                      ),
+                                    ),
+                                  )
+                                : DropdownButtonFormField<int>(
+                                    value: _selectedServiceId,
+                                    dropdownColor: isDark ? const Color(0xFF2C3034) : Colors.white,
+                                    items: _apiServices.map<DropdownMenuItem<int>>((service) {
+                                      final serviceName = service['name'] ?? service['title'] ?? 'Specialist';
+                                      return DropdownMenuItem<int>(
+                                        value: service['id'] as int,
+                                        child: Text(
+                                          serviceName.toString(),
+                                          style: GoogleFonts.outfit(fontSize: 14),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedServiceId = value;
+                                      });
+                                    },
+                                    validator: (value) {
+                                      if (_selectedRole == 'Worker' && value == null) {
+                                        return 'Please select your service';
+                                      }
+                                      return null;
+                                    },
+                                    decoration: InputDecoration(
+                                      hintText: 'Select field...',
+                                      prefixIcon: Icon(
+                                        Icons.construction_rounded,
+                                        color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                            const SizedBox(height: 18),
+                          ],
+
+                          // Password
+                          Text(
+                            'Password',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            style: GoogleFonts.outfit(fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: 'Minimum 8 characters',
+                              prefixIcon: Icon(
+                                Icons.lock_outline_rounded,
+                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                size: 20,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  color: ClickFixTheme.textMuted,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().length < 8) return 'Password must be at least 8 characters';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 18),
+
+                          // Confirm Password
+                          Text(
+                            'Confirm Password',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: ClickFixTheme.primaryAmber,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirmPassword,
+                            style: GoogleFonts.outfit(fontSize: 15),
+                            decoration: InputDecoration(
+                              hintText: 'Re-enter your password',
+                              prefixIcon: Icon(
+                                Icons.lock_outline_rounded,
+                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                size: 20,
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirmPassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                  color: ClickFixTheme.textMuted,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return 'Please confirm your password';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 28),
+
+                          // Submit Button (Next)
+                          InteractiveButton(
+                            isLoading: _isLoading,
+                            onPressed: _handleRegister,
+                            child: Text(
+                              'Next: Complete Setup',
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: ClickFixTheme.primaryDark,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
