@@ -4,6 +4,7 @@ import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/screens/booking_screen.dart';
+import 'package:clickfix/screens/customer/worker_services_screen.dart';
 
 class ServicesTab extends StatefulWidget {
   const ServicesTab({super.key});
@@ -183,7 +184,7 @@ class _ServicesTabState extends State<ServicesTab> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => BookingScreen(initialService: service),
+              builder: (context) => WorkerServicesScreen(serviceCategory: service.title),
             ),
           );
         },

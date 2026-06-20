@@ -4,8 +4,9 @@ import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/screens/booking_screen.dart';
 import 'package:clickfix/screens/customer/job_details_screen.dart';
+import 'package:clickfix/services/api_service.dart';
 
-class WorkerServicesScreen extends StatelessWidget {
+class WorkerServicesScreen extends StatefulWidget {
   final String serviceCategory;
 
   const WorkerServicesScreen({
@@ -13,71 +14,91 @@ class WorkerServicesScreen extends StatelessWidget {
     required this.serviceCategory,
   });
 
-  // Simulated worker list for demonstration
-  static const List<Map<String, dynamic>> dummyWorkers = [
-    {
-      'name': 'Hafiz Muhammad Talha',
-      'rating': 4.9,
-      'completedJobs': 142,
-      'experience': '5 Years',
-      'priceMultiplier': 1.0,
-      'badge': 'Top Rated Pro',
-      'about': 'Professional repair expert specializing in residential electrical setups and appliances.',
-      'avatarColor': Colors.teal,
-    },
-    {
-      'name': 'Awais Choudhary',
-      'rating': 4.8,
-      'completedJobs': 98,
-      'experience': '3 Years',
-      'priceMultiplier': 0.9,
-      'badge': 'Super Fast',
-      'about': 'Quick response handyman, expert in plumbing fixes and water system diagnostics.',
-      'avatarColor': Colors.deepPurple,
-    },
-    {
-      'name': 'Sajid Mehmood',
-      'rating': 5.0,
-      'completedJobs': 210,
-      'experience': '8 Years',
-      'priceMultiplier': 1.1,
-      'badge': 'Gold Elite',
-      'about': 'Master contractor with extensive experience in structural, wood and painting installations.',
-      'avatarColor': Colors.indigo,
-    },
-    {
-      'name': 'Imran Khan',
-      'rating': 4.7,
-      'completedJobs': 56,
-      'experience': '2 Years',
-      'priceMultiplier': 0.85,
-      'badge': 'Budget Friendly',
-      'about': 'Affordable solutions for general home maintenance, solar alignment, and IT network diagnostics.',
-      'avatarColor': Colors.orange,
+  @override
+  State<WorkerServicesScreen> createState() => _WorkerServicesScreenState();
+}
+
+class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
+  bool _isLoading = true;
+  List<dynamic> _apiJobs = [];
+  List<ServiceModel> _categoryServices = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 1. Resolve local service models matching category
+      final localServices = ServiceModel.services
+          .where((s) => s.category.toLowerCase() == widget.serviceCategory.toLowerCase())
+          .toList();
+
+      // 2. Fetch worker jobs matching the category from API
+      final response = await ApiService().getJobs(category: widget.serviceCategory);
+      List<dynamic> loadedJobs = [];
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        if (data is List) {
+          loadedJobs = data;
+        } else if (data is Map && data.containsKey('data')) {
+          final innerData = data['data'];
+          if (innerData is List) {
+            loadedJobs = innerData;
+          }
+        }
+      }
+
+      setState(() {
+        _categoryServices = localServices;
+        _apiJobs = loadedJobs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading worker services: $e');
+      setState(() {
+        _isLoading = false;
+      });
     }
-  ];
+  }
+
+  ServiceModel _getServiceModel(dynamic serviceData) {
+    if (serviceData == null) return ServiceModel.services.first;
+    final String serviceId = (serviceData['id'] ?? '').toString();
+    return ServiceModel.services.firstWhere(
+      (element) => element.id == serviceId,
+      orElse: () => ServiceModel(
+        id: serviceId,
+        title: serviceData['title'] ?? serviceData['name'] ?? 'Service',
+        category: serviceData['category'] ?? widget.serviceCategory,
+        description: serviceData['description'] ?? '',
+        basePrice: double.tryParse((serviceData['base_price'] ?? serviceData['basePrice'] ?? '0').toString()) ?? 0,
+        iconData: Icons.engineering_rounded,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Filter services belonging to this category
-    final categoryServices = ServiceModel.services
-        .where((s) => s.category.toLowerCase() == serviceCategory.toLowerCase())
-        .toList();
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          serviceCategory,
+          widget.serviceCategory,
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
-      body: categoryServices.isEmpty
-          ? Center(
-              child: Text(
-                'No services in this category.',
-                style: GoogleFonts.outfit(color: ClickFixTheme.textMuted),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
               ),
             )
           : SingleChildScrollView(
@@ -92,170 +113,216 @@ class WorkerServicesScreen extends StatelessWidget {
                       style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: categoryServices.length,
-                      itemBuilder: (context, index) {
-                        final service = categoryServices[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: ClickFixTheme.primaryAmber.withOpacity(0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
+                    _categoryServices.isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12.0),
+                            child: Text(
+                              'No services in this category.',
+                              style: GoogleFonts.outfit(color: ClickFixTheme.textMuted),
                             ),
-                            title: Text(
-                              service.title,
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              'Starts from Rs. ${service.basePrice.toStringAsFixed(0)}',
-                              style: TextStyle(color: ClickFixTheme.primaryAmber, fontWeight: FontWeight.w600),
-                            ),
-                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                  MaterialPageRoute(
-                                    builder: (context) => JobDetailsScreen(service: service),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _categoryServices.length,
+                            itemBuilder: (context, index) {
+                              final service = _categoryServices[index];
+                              return Card(
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                child: ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: ClickFixTheme.primaryAmber.withOpacity(0.12),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
                                   ),
+                                  title: Text(
+                                    service.title,
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Text(
+                                    'Starts from Rs. ${service.basePrice.toStringAsFixed(0)}',
+                                    style: TextStyle(color: ClickFixTheme.primaryAmber, fontWeight: FontWeight.w600),
+                                  ),
+                                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => JobDetailsScreen(service: service),
+                                      ),
+                                    );
+                                  },
+                                ),
                               );
                             },
                           ),
-                        );
-                      },
-                    ),
                     const SizedBox(height: 24),
                     Text(
                       'Featured Service Providers',
                       style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: dummyWorkers.length,
-                      itemBuilder: (context, index) {
-                        final worker = dummyWorkers[index];
-                        final service = categoryServices.first;
-                        final workerBasePrice = service.basePrice * worker['priceMultiplier'];
-                        
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 26,
-                                      backgroundColor: worker['avatarColor'] as Color,
-                                      child: Text(
-                                        worker['name'][0],
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
+                    _apiJobs.isEmpty
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.people_outline_rounded, size: 40, color: ClickFixTheme.textMuted.withOpacity(0.5)),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No providers currently active.',
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  Text(
+                                    'Please check back later.',
+                                    style: GoogleFonts.outfit(color: ClickFixTheme.textMuted, fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _apiJobs.length,
+                            itemBuilder: (context, index) {
+                              final job = _apiJobs[index];
+                              final workerUser = job['user'];
+                              final workerName = workerUser != null ? (workerUser['name'] ?? 'Professional') : 'Professional';
+                              final workerCity = workerUser != null ? (workerUser['city'] ?? 'Faisalabad') : 'Faisalabad';
+                              final workerId = workerUser != null ? (workerUser['id'] as int?) : null;
+
+                              final service = _getServiceModel(job['service']);
+                              final price = double.tryParse((job['price'] ?? '0').toString()) ?? service.basePrice;
+                              final desc = job['description'] ?? 'Expert home service provider.';
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                worker['name'] as String,
-                                                style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold),
-                                              ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: ClickFixTheme.primaryAmber.withOpacity(0.15),
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                  worker['badge'] as String,
-                                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
-                                                ),
-                                              ),
-                                            ],
+                                          CircleAvatar(
+                                            radius: 26,
+                                            backgroundColor: Colors.teal,
+                                            child: Text(
+                                              workerName.isNotEmpty ? workerName[0].toUpperCase() : 'P',
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                                            ),
                                           ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.star_rounded, color: ClickFixTheme.primaryAmber, size: 14),
-                                              const SizedBox(width: 2),
-                                              Text(
-                                                '${worker['rating']} (${worker['completedJobs']} jobs)',
-                                                style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Icon(Icons.history_rounded, size: 14, color: ClickFixTheme.textMuted),
-                                              const SizedBox(width: 2),
-                                              Text(
-                                                worker['experience'] as String,
-                                                style: GoogleFonts.outfit(fontSize: 12, color: ClickFixTheme.textMuted),
-                                              ),
-                                            ],
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        workerName,
+                                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: ClickFixTheme.primaryAmber.withOpacity(0.15),
+                                                        borderRadius: BorderRadius.circular(10),
+                                                      ),
+                                                      child: Text(
+                                                        'Verified Pro',
+                                                        style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.star_rounded, color: ClickFixTheme.primaryAmber, size: 14),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      '4.9 (Live Pro)',
+                                                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    const Icon(Icons.location_on_rounded, size: 14, color: ClickFixTheme.textMuted),
+                                                    const SizedBox(width: 2),
+                                                    Text(
+                                                      workerCity,
+                                                      style: GoogleFonts.outfit(fontSize: 12, color: ClickFixTheme.textMuted),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  worker['about'] as String,
-                                  style: GoogleFonts.outfit(fontSize: 12, color: isDark ? Colors.white60 : ClickFixTheme.textMuted),
-                                ),
-                                const SizedBox(height: 12),
-                                const Divider(height: 1),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Estimated Cost', style: TextStyle(fontSize: 10, color: ClickFixTheme.textMuted)),
-                                        Text(
-                                          'Rs. ${workerBasePrice.toStringAsFixed(0)}',
-                                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: ClickFixTheme.primaryAmber),
-                                        ),
-                                      ],
-                                    ),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => BookingScreen(
-                                              initialService: service,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        desc,
+                                        style: GoogleFonts.outfit(fontSize: 12, color: isDark ? Colors.white60 : ClickFixTheme.textMuted),
                                       ),
-                                      child: const Text('Hire Expert'),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 12),
+                                      const Divider(height: 1),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Estimated Cost', style: TextStyle(fontSize: 10, color: ClickFixTheme.textMuted)),
+                                              Text(
+                                                'Rs. ${price.toStringAsFixed(0)}',
+                                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: ClickFixTheme.primaryAmber),
+                                              ),
+                                            ],
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => BookingScreen(
+                                                    initialService: service,
+                                                    workerId: workerId,
+                                                    workerName: workerName,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                            ),
+                                            child: const Text('Hire Expert'),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ],
                 ),
               ),

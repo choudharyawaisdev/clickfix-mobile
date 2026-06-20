@@ -3,39 +3,20 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/location_service.dart';
-
-// Simple in-memory session manager for booked services
-class BookingSession {
-  static final List<Map<String, dynamic>> activeBookings = [
-    {
-      'id': 'BK-9821',
-      'service': 'AC Repair',
-      'icon': Icons.ac_unit_rounded,
-      'date': '2026-06-21',
-      'time': '10:00 AM - 12:00 PM',
-      'address': 'D-Ground, Peoples Colony No. 1, Faisalabad',
-      'status': 'Assigned',
-      'price': 1500.0,
-      'expert': 'Sajid Mehmood',
-    },
-    {
-      'id': 'BK-7729',
-      'service': 'Plumbing',
-      'icon': Icons.plumbing_rounded,
-      'date': '2026-06-18',
-      'time': '02:00 PM - 04:00 PM',
-      'address': 'Samanabad, Faisalabad',
-      'status': 'Completed',
-      'price': 600.0,
-      'expert': 'Muhammad Rafiq',
-    }
-  ];
-}
+import 'package:clickfix/services/auth_service.dart';
+import 'package:clickfix/services/api_service.dart';
 
 class BookingScreen extends StatefulWidget {
   final ServiceModel? initialService;
+  final int? workerId;
+  final String? workerName;
 
-  const BookingScreen({super.key, this.initialService});
+  const BookingScreen({
+    super.key,
+    this.initialService,
+    this.workerId,
+    this.workerName,
+  });
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
@@ -76,12 +57,27 @@ class _BookingScreenState extends State<BookingScreen> {
   final TextEditingController _colonySearchController = TextEditingController();
   String _selectedColony = '';
 
+  List<dynamic> _bookings = [];
+  bool _isLoadingBookings = true;
+  bool _isSubmitting = false;
+
   @override
   void initState() {
     super.initState();
     _selectedService = widget.initialService;
+    
+    // Prefill details from active login session
+    final user = AuthService().currentUser;
+    if (user != null) {
+      _nameController.text = user.name;
+      _phoneController.text = user.phoneNumber;
+      _selectedCity = user.city.isNotEmpty ? user.city : 'Faisalabad';
+      _citySearchController.text = _selectedCity;
+    }
+
     _loadCities();
-    _loadColonies('Faisalabad');
+    _loadColonies(_selectedCity);
+    _loadBookings();
     
     _citySearchController.addListener(_onCitySearchChanged);
     _colonySearchController.addListener(_onColonySearchChanged);
@@ -146,6 +142,31 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
+  Future<void> _loadBookings() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingBookings = true;
+    });
+    try {
+      final response = await ApiService().getMyBookings();
+      if (response['status'] == true && response.containsKey('data')) {
+        final data = response['data'];
+        if (data is List) {
+          setState(() {
+            _bookings = data;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading customer bookings: $e');
+    }
+    if (mounted) {
+      setState(() {
+        _isLoadingBookings = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _citySearchController.removeListener(_onCitySearchChanged);
@@ -168,7 +189,7 @@ class _BookingScreenState extends State<BookingScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: ClickFixTheme.primaryAmber,
               onPrimary: ClickFixTheme.primaryDark,
               onSurface: ClickFixTheme.textDark,
@@ -185,26 +206,108 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
-  void _submitBooking() {
+  void _submitBooking() async {
     if (_formKey.currentState!.validate()) {
-      final newBooking = {
-        'id': 'BK-${(1000 + (BookingSession.activeBookings.length * 12)).toString()}',
-        'service': _selectedService!.title,
-        'icon': _selectedService!.iconData,
-        'date': '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}',
-        'time': _selectedTimeSlot,
-        'address': '${_addressController.text.trim()}, ${_colonySearchController.text.trim()}, $_selectedCity',
-        'status': 'Requested',
-        'price': _selectedService!.basePrice,
-        'expert': 'Finding best match...',
-      };
-
       setState(() {
-        BookingSession.activeBookings.insert(0, newBooking);
-        _selectedService = null; // Clear the scheduling form and return to dashboard
+        _isSubmitting = true;
       });
 
-      _showSuccessDialog();
+      int? workerId = widget.workerId;
+      
+      // If workerId is not passed, resolve dynamically from jobs offering this service category
+      if (workerId == null) {
+        try {
+          final res = await ApiService().getJobs(category: _selectedService!.title);
+          if (res['status'] == true && res.containsKey('data')) {
+            final data = res['data'];
+            List<dynamic> jobs = [];
+            if (data is List) {
+              jobs = data;
+            } else if (data is Map && data.containsKey('data')) {
+              final innerData = data['data'];
+              if (innerData is List) {
+                jobs = innerData;
+              }
+            }
+            if (jobs.isNotEmpty) {
+              final firstJob = jobs.first;
+              if (firstJob['user'] != null) {
+                workerId = firstJob['user']['id'] as int?;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error locating matching workers: $e');
+        }
+      }
+
+      // Default fallback worker ID if none is found
+      workerId ??= 2;
+
+      final bookingDate = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+      final bookingTime = _selectedTimeSlot;
+      final fullAddress = '${_addressController.text.trim()}, ${_colonySearchController.text.trim()}, $_selectedCity';
+      final message = _problemController.text.trim();
+
+      // Convert String service ID to int (mapping static IDs if needed)
+      int sId = int.tryParse(_selectedService!.id) ?? 1;
+      if (sId == 1 && _selectedService!.id != '1') {
+        switch (_selectedService!.id.toLowerCase()) {
+          case 'electrician': sId = 1; break;
+          case 'plumbing': sId = 2; break;
+          case 'ac_repair': sId = 3; break;
+          case 'carpenter': sId = 4; break;
+          case 'cleaning': sId = 5; break;
+          case 'painter': sId = 6; break;
+          case 'solar_panels': sId = 7; break;
+          case 'cctv_cam': sId = 8; break;
+          case 'auto_care': sId = 9; break;
+          case 'it_support': sId = 10; break;
+          case 'pest_control': sId = 11; break;
+          case 'appliances_repair': sId = 12; break;
+          case 'gardening': sId = 13; break;
+          case 'masonry': sId = 14; break;
+          case 'moving_packing': sId = 15; break;
+        }
+      }
+
+      try {
+        final result = await ApiService().createBooking(
+          workerId: workerId,
+          serviceId: sId,
+          bookingDate: bookingDate,
+          bookingTime: bookingTime,
+          address: fullAddress,
+          message: message.isNotEmpty ? message : null,
+        );
+
+        setState(() {
+          _isSubmitting = false;
+        });
+
+        if (result['status'] == true) {
+          _showSuccessDialog();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Failed to complete booking. Please try again.'),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Booking request failed: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -257,7 +360,11 @@ class _BookingScreenState extends State<BookingScreen> {
                   height: 46,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(); // Dismiss Dialog
+                      setState(() {
+                        _selectedService = null;
+                      });
+                      _loadBookings(); // Reload list
                     },
                     child: const Text('View My Bookings'),
                   ),
@@ -267,6 +374,22 @@ class _BookingScreenState extends State<BookingScreen> {
           ),
         );
       },
+    );
+  }
+
+  ServiceModel _getServiceModel(dynamic serviceData) {
+    if (serviceData == null) return ServiceModel.services.first;
+    final String serviceId = (serviceData['id'] ?? '').toString();
+    return ServiceModel.services.firstWhere(
+      (element) => element.id == serviceId,
+      orElse: () => ServiceModel(
+        id: serviceId,
+        title: serviceData['title'] ?? serviceData['name'] ?? 'Service Request',
+        category: serviceData['category'] ?? 'Maintenance',
+        description: serviceData['description'] ?? '',
+        basePrice: double.tryParse((serviceData['base_price'] ?? serviceData['basePrice'] ?? '0').toString()) ?? 0,
+        iconData: Icons.engineering_rounded,
+      ),
     );
   }
 
@@ -339,6 +462,17 @@ class _BookingScreenState extends State<BookingScreen> {
                                     fontSize: 14,
                                   ),
                                 ),
+                                if (widget.workerName != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Hiring Pro: ${widget.workerName}',
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.teal,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -571,7 +705,7 @@ class _BookingScreenState extends State<BookingScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.calendar_today_rounded, color: ClickFixTheme.primaryAmber, size: 20),
+                              const Icon(Icons.calendar_today_rounded, color: ClickFixTheme.primaryAmber, size: 20),
                               const SizedBox(width: 12),
                               Text(
                                 '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
@@ -633,11 +767,17 @@ class _BookingScreenState extends State<BookingScreen> {
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _submitBooking,
-                      child: Text(
-                        'Confirm Booking',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
+                      onPressed: _isSubmitting ? null : _submitBooking,
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              'Confirm Booking',
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -650,173 +790,199 @@ class _BookingScreenState extends State<BookingScreen> {
     }
 
     // Mode 2: General bookings history dashboard
-    final bookings = BookingSession.activeBookings;
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _loadBookings,
+        color: ClickFixTheme.primaryAmber,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              Text(
+                'My Bookings',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Track your scheduled and past home services',
+                style: GoogleFonts.outfit(
+                  color: ClickFixTheme.textMuted,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: _isLoadingBookings
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+                        ),
+                      )
+                    : _bookings.isEmpty
+                        ? _buildBookingsEmptyState()
+                        : ListView.builder(
+                            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                            itemCount: _bookings.length,
+                            itemBuilder: (context, index) {
+                              final bk = _bookings[index];
+                              final service = _getServiceModel(bk['service']);
+                              final int bookingId = bk['id'] as int? ?? 0;
+                              final rawStatus = (bk['status'] ?? 'pending').toString().toLowerCase();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Text(
-            'My Bookings',
-            style: GoogleFonts.outfit(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Track your scheduled and past home services',
-            style: GoogleFonts.outfit(
-              color: ClickFixTheme.textMuted,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: bookings.isEmpty
-                ? _buildBookingsEmptyState()
-                : ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: bookings.length,
-                    itemBuilder: (context, index) {
-                      final bk = bookings[index];
-                      final isCompleted = bk['status'] == 'Completed';
-                      final isRequested = bk['status'] == 'Requested';
-                      final isAssigned = bk['status'] == 'Assigned';
+                              final isCompleted = rawStatus == 'completed';
+                              final isRequested = rawStatus == 'pending';
 
-                      Color statusColor = Colors.orange;
-                      if (isCompleted) statusColor = Colors.green;
-                      if (isRequested) statusColor = Colors.blue;
+                              Color statusColor = Colors.orange;
+                              if (isCompleted) statusColor = Colors.green;
+                              if (isRequested) statusColor = Colors.blue;
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Top header row
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
+                              String displayStatus = 'Active';
+                              if (isCompleted) displayStatus = 'Completed';
+                              if (rawStatus == 'cancelled' || rawStatus == 'rejected') {
+                                displayStatus = 'Cancelled';
+                                statusColor = Colors.redAccent;
+                              }
+
+                              final expertName = bk['worker'] != null ? (bk['worker']['name'] ?? 'Professional') : 'Finding Best Expert...';
+                              final address = bk['address'] ?? '';
+                              final date = bk['booking_date'] ?? bk['date'] ?? '';
+                              final time = bk['booking_time'] ?? bk['time'] ?? '';
+                              final cost = double.tryParse((bk['price'] ?? bk['cost'] ?? '0').toString()) ?? service.basePrice;
+
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Icon(
-                                        bk['icon'] as IconData,
-                                        color: ClickFixTheme.primaryAmber,
-                                        size: 22,
+                                      // Top header row
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                service.iconData,
+                                                color: ClickFixTheme.primaryAmber,
+                                                size: 22,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                service.title,
+                                                style: GoogleFonts.outfit(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: statusColor.withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(30),
+                                            ),
+                                            child: Text(
+                                              displayStatus,
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 11,
+                                                color: statusColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        bk['service'] as String,
-                                        style: GoogleFonts.outfit(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
+                                      const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 10.0),
+                                        child: Divider(height: 1),
+                                      ),
+                                      // Details grid
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.calendar_month_outlined, size: 16, color: ClickFixTheme.textMuted),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            date,
+                                            style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          const Icon(Icons.access_time_rounded, size: 16, color: ClickFixTheme.textMuted),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              time,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Icon(Icons.location_on_outlined, size: 16, color: ClickFixTheme.textMuted),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              address,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.person_pin_rounded, size: 16, color: ClickFixTheme.textMuted),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Expert: ',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark ? Colors.white60 : ClickFixTheme.textMuted,
+                                            ),
+                                          ),
+                                          Text(
+                                            expertName,
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: isDark ? Colors.white : ClickFixTheme.textDark,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            'Rs. ${cost.toStringAsFixed(0)}',
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: ClickFixTheme.primaryAmber,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: statusColor.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    child: Text(
-                                      bk['status'] as String,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        color: statusColor,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 10.0),
-                                child: Divider(height: 1),
-                              ),
-                              // Details grid
-                              Row(
-                                children: [
-                                  const Icon(Icons.calendar_month_outlined, size: 16, color: ClickFixTheme.textMuted),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    bk['date'] as String,
-                                    style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  const Icon(Icons.access_time_rounded, size: 16, color: ClickFixTheme.textMuted),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      bk['time'] as String,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(Icons.location_on_outlined, size: 16, color: ClickFixTheme.textMuted),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      bk['address'] as String,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(Icons.person_pin_rounded, size: 16, color: ClickFixTheme.textMuted),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Expert: ',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.white60 : ClickFixTheme.textMuted,
-                                    ),
-                                  ),
-                                  Text(
-                                    bk['expert'] as String,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white : ClickFixTheme.textDark,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'Rs. ${bk['price']}',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: ClickFixTheme.primaryAmber,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              );
+                            },
                           ),
-                        ),
-                      );
-                    },
-                  ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
