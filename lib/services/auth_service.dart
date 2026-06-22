@@ -215,5 +215,69 @@ class AuthService {
     await clearSession();
   }
 
+  /// Switches user role dynamically between customer and worker via API.
+  Future<bool> switchRole() async {
+    try {
+      final result = await ApiService().switchRole();
+      if (result['status'] == true && result.containsKey('data')) {
+        final newRole = result['data']['role'] ?? 'customer';
+        if (currentUser != null) {
+          currentUser = ClickFixUser(
+            id: currentUser!.id,
+            name: currentUser!.name,
+            email: currentUser!.email,
+            phoneNumber: currentUser!.phoneNumber,
+            city: currentUser!.city,
+            role: newRole,
+            serviceId: currentUser!.serviceId,
+            profilePicture: currentUser!.profilePicture,
+            description: currentUser!.description,
+            address: currentUser!.address,
+            avatarColor: currentUser!.avatarColor,
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_data', json.encode(currentUser!.toJson()));
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error switching role: $e');
+    }
+    return false;
+  }
+
+  /// Updates user profile on backend and saves it locally.
+  Future<bool> updateUserProfile({
+    required String name,
+    required String email,
+    String? phoneNumber,
+    String? city,
+    String? password,
+    String? description,
+  }) async {
+    if (currentUser == null) return false;
+    try {
+      final result = await ApiService().updateProfile(
+        name: name,
+        email: email,
+        phoneNumber: phoneNumber,
+        city: city,
+        password: password,
+        passwordConfirmation: password,
+        description: description,
+      );
+
+      if (result['status'] == true && result.containsKey('data')) {
+        currentUser = ClickFixUser.fromJson(result['data']);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_data', json.encode(currentUser!.toJson()));
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error updating profile: $e');
+    }
+    return false;
+  }
+
   bool get isLoggedIn => currentUser != null;
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -881,6 +882,157 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       return {'status': false, 'message': 'Failed to retrieve notifications: $e'};
+    }
+  }
+
+  // ── 11. Mock Customer Job Posting & Bidding APIs ─────────────────────────
+
+  /// POST /api/customer/jobs (Mocked via SharedPreferences)
+  Future<Map<String, dynamic>> postCustomerJob({
+    required String title,
+    required String description,
+    required double budget,
+    required String category,
+    required String location,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jobsStr = prefs.getString('mock_customer_jobs') ?? '[]';
+      final List<dynamic> jobs = json.decode(jobsStr);
+
+      final newJob = {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'title': title,
+        'description': description,
+        'budget': budget,
+        'category': category,
+        'location': location,
+        'status': 'open',
+        'created_at': DateTime.now().toIso8601String(),
+        'user_id': 0,
+      };
+
+      final userDataStr = prefs.getString('user_data');
+      if (userDataStr != null) {
+        final userData = json.decode(userDataStr);
+        newJob['user_id'] = userData['id'] ?? 0;
+        newJob['posted_by'] = userData['name'] ?? 'Customer';
+      } else {
+        newJob['posted_by'] = 'Customer';
+      }
+
+      jobs.add(newJob);
+      await prefs.setString('mock_customer_jobs', json.encode(jobs));
+
+      return {
+        'status': true,
+        'message': 'Customer job posted successfully.',
+        'data': newJob,
+      };
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to post customer job: $e'};
+    }
+  }
+
+  /// GET /api/customer/jobs (Mocked)
+  Future<Map<String, dynamic>> getMyCustomerJobs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jobsStr = prefs.getString('mock_customer_jobs') ?? '[]';
+      final List<dynamic> allJobs = json.decode(jobsStr);
+
+      int currentUserId = 0;
+      final userDataStr = prefs.getString('user_data');
+      if (userDataStr != null) {
+        final userData = json.decode(userDataStr);
+        currentUserId = userData['id'] ?? 0;
+      }
+
+      final myJobs = allJobs.where((job) => job['user_id'] == currentUserId).toList();
+      return {
+        'status': true,
+        'message': 'Customer jobs retrieved successfully.',
+        'data': myJobs,
+      };
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch customer jobs: $e'};
+    }
+  }
+
+  /// GET /api/customer/all-jobs (Mocked)
+  Future<Map<String, dynamic>> getAllCustomerJobs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jobsStr = prefs.getString('mock_customer_jobs') ?? '[]';
+      final List<dynamic> allJobs = json.decode(jobsStr);
+
+      final openJobs = allJobs.where((job) => job['status'] == 'open').toList();
+      return {
+        'status': true,
+        'message': 'All customer jobs retrieved successfully.',
+        'data': openJobs,
+      };
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch all customer jobs: $e'};
+    }
+  }
+
+  /// POST /api/customer/jobs/{id}/bids (Mocked)
+  Future<Map<String, dynamic>> placeBid({
+    required int jobId,
+    required double amount,
+    required String proposal,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bidsStr = prefs.getString('mock_worker_bids') ?? '[]';
+      final List<dynamic> bids = json.decode(bidsStr);
+
+      final newBid = {
+        'id': DateTime.now().millisecondsSinceEpoch,
+        'job_id': jobId,
+        'amount': amount,
+        'proposal': proposal,
+        'created_at': DateTime.now().toIso8601String(),
+        'worker_id': 0,
+        'worker_name': 'Worker',
+      };
+
+      final userDataStr = prefs.getString('user_data');
+      if (userDataStr != null) {
+        final userData = json.decode(userDataStr);
+        newBid['worker_id'] = userData['id'] ?? 0;
+        newBid['worker_name'] = userData['name'] ?? 'Worker';
+      }
+
+      bids.add(newBid);
+      await prefs.setString('mock_worker_bids', json.encode(bids));
+
+      return {
+        'status': true,
+        'message': 'Bid placed successfully.',
+        'data': newBid,
+      };
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to place bid: $e'};
+    }
+  }
+
+  /// GET /api/customer/jobs/{id}/bids (Mocked)
+  Future<Map<String, dynamic>> getCustomerJobBids(int jobId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bidsStr = prefs.getString('mock_worker_bids') ?? '[]';
+      final List<dynamic> allBids = json.decode(bidsStr);
+
+      final jobBids = allBids.where((bid) => bid['job_id'] == jobId).toList();
+      return {
+        'status': true,
+        'message': 'Bids retrieved successfully.',
+        'data': jobBids,
+      };
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch bids: $e'};
     }
   }
 

@@ -36,13 +36,18 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
     });
 
     try {
+      final bool isAll = widget.serviceCategory.toLowerCase() == 'all services';
+
       // 1. Resolve local service models matching category
-      final localServices = ServiceModel.services
-          .where((s) => s.category.toLowerCase() == widget.serviceCategory.toLowerCase())
-          .toList();
+      final localServices = isAll
+          ? ServiceModel.services
+          : ServiceModel.services
+              .where((s) => s.category.toLowerCase() == widget.serviceCategory.toLowerCase() ||
+                            s.title.toLowerCase() == widget.serviceCategory.toLowerCase())
+              .toList();
 
       // 2. Fetch worker jobs matching the category from API
-      final response = await ApiService().getJobs(category: widget.serviceCategory);
+      final response = await ApiService().getJobs(category: isAll ? null : widget.serviceCategory);
       List<dynamic> loadedJobs = [];
       if (response['status'] == true && response.containsKey('data')) {
         final data = response['data'];

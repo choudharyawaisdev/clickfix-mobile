@@ -27,8 +27,17 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   bool _showCitySuggestions = false;
   String _searchQuery = '';
 
-  // Currently selected service (Electrician by default)
-  ServiceModel _selectedService = ServiceModel.services.first;
+  // Currently selected service (All Services by default)
+  final ServiceModel _allServicesOption = const ServiceModel(
+    id: 'all',
+    title: 'All Services',
+    category: 'All',
+    iconData: Icons.all_inclusive_rounded,
+    description: 'Display all available worker jobs.',
+    basePrice: 0,
+  );
+
+  late ServiceModel _selectedService;
 
   // Active Job Posts Carousel variables
   List<dynamic> _apiJobs = [];
@@ -80,6 +89,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedService = _allServicesOption;
     _loadCities();
     _loadServices();
 
@@ -114,10 +124,8 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
           
           if (mounted) {
             setState(() {
-              _apiServices = loaded;
-              if (_apiServices.isNotEmpty) {
-                _selectedService = _apiServices.first;
-              }
+              _apiServices = [_allServicesOption, ...loaded];
+              _selectedService = _allServicesOption;
               _isLoadingServices = false;
             });
             _loadApiJobs();
@@ -132,10 +140,8 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     // Fallback to static list if API fails
     if (mounted) {
       setState(() {
-        _apiServices = ServiceModel.services;
-        if (_apiServices.isNotEmpty) {
-          _selectedService = _apiServices.first;
-        }
+        _apiServices = [_allServicesOption, ...ServiceModel.services];
+        _selectedService = _allServicesOption;
         _isLoadingServices = false;
       });
       _loadApiJobs();
@@ -161,7 +167,8 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     });
 
     try {
-      final response = await ApiService().getJobs(category: _selectedService.title);
+      final String? categoryFilter = _selectedService.id == 'all' ? null : _selectedService.title;
+      final response = await ApiService().getJobs(category: categoryFilter);
       if (response['status'] == true && response.containsKey('data')) {
         final data = response['data'];
         List<dynamic> parsedJobs = [];

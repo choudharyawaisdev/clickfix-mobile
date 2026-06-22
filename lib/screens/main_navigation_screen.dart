@@ -14,6 +14,7 @@ import 'package:clickfix/screens/customer/bookings_index_screen.dart';
 import 'package:clickfix/screens/customer/wishlist_index_screen.dart';
 import 'package:clickfix/screens/customer/profile_details_screen.dart';
 import 'package:clickfix/screens/customer/profile_edit_screen.dart';
+import 'package:clickfix/screens/customer/my_posted_jobs_screen.dart';
 
 // Worker screens
 import 'package:clickfix/screens/worker/jobworker_index_screen.dart';
@@ -23,6 +24,7 @@ import 'package:clickfix/screens/worker/portfolio_screen.dart';
 import 'package:clickfix/screens/worker/bookings_screen.dart';
 import 'package:clickfix/screens/worker/profile_details_screen.dart';
 import 'package:clickfix/screens/worker/profile_edit_screen.dart';
+import 'package:clickfix/screens/worker/customer_jobs_feed_screen.dart';
 
 // Admin screens
 import 'package:clickfix/screens/admin/dashboard_screen.dart';
@@ -58,6 +60,52 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const BookingScreen(),
     const SupportTab(),
   ];
+
+  Future<void> _handleRoleSwitch(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+        ),
+      ),
+    );
+
+    final success = await AuthService().switchRole();
+    
+    if (context.mounted) {
+      Navigator.pop(context); // Close loading dialog
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.swap_horiz_rounded, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Switched to ${AuthService().currentUser?.role.toUpperCase()} Mode!'),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MainNavigationScreen()),
+          (route) => false,
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to switch role. Please try again.'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -154,9 +202,69 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
               ),
             ),
+            
+            // Dynamic Switch Role Card
+            if (role == 'customer' || role == 'worker')
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Card(
+                  elevation: 0,
+                  color: ClickFixTheme.primaryAmber.withOpacity(0.12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: ClickFixTheme.primaryAmber.withOpacity(0.3), width: 1.5),
+                  ),
+                  child: InkWell(
+                    onTap: () => _handleRoleSwitch(context),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            role == 'customer' ? Icons.engineering_rounded : Icons.person_rounded,
+                            color: ClickFixTheme.primaryAmber,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  role == 'customer' ? 'Switch to Worker Mode' : 'Switch to Customer Mode',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: isDark ? Colors.white : ClickFixTheme.textDark,
+                                  ),
+                                ),
+                                Text(
+                                  role == 'customer' ? 'Offer services & bid on jobs' : 'Post jobs & book services',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    color: ClickFixTheme.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.swap_horiz_rounded,
+                            color: ClickFixTheme.primaryAmber,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
             Expanded(
               child: ListView(
                 padding: EdgeInsets.zero,
+                physics: const BouncingScrollPhysics(),
                 children: [
                   // DYNAMIC ROLE SIDEBAR MENUS
                   if (role == 'customer') ...[
@@ -168,12 +276,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       const WorkerServicesScreen(serviceCategory: 'Maintenance'),
                       Icons.engineering_rounded,
                     ),
-                    _buildDrawerItem(
-                      context,
-                      'Job Inclusions Details',
-                      JobDetailsScreen(service: ServiceModel.services[0]),
-                      Icons.info_outline_rounded,
-                    ),
+                    _buildDrawerItem(context, 'Post a Job', const PostJobScreen(), Icons.add_circle_outline_rounded),
+                    _buildDrawerItem(context, 'My Posted Jobs & Bids', const MyPostedJobsScreen(), Icons.gavel_rounded),
                     _buildDrawerItem(context, 'Track My Bookings', const BookingsIndexScreen(), Icons.calendar_month_rounded),
                     _buildDrawerItem(context, 'Chat Inbox', const ConversationsScreen(), Icons.forum_rounded),
                     _buildDrawerItem(context, 'Saved Wishlist', const WishlistIndexScreen(), Icons.favorite_rounded),
@@ -182,6 +286,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   ] else if (role == 'worker') ...[
                     _buildDrawerHeader('WORKER MENU', Colors.teal, isDark),
                     _buildDrawerItem(context, 'Dashboard Hub', const WorkerJobworkerIndexScreen(), Icons.space_dashboard_rounded),
+                    _buildDrawerItem(context, 'Customer Jobs Feed', const CustomerJobsFeedScreen(), Icons.gavel_rounded),
                     _buildDrawerItem(context, 'Offer New Skill Listing', const WorkerJobworkerCreateScreen(), Icons.add_box_rounded),
                     _buildDrawerItem(context, 'Edit Offered Rates', const WorkerJobworkerEditScreen(), Icons.edit_attributes_rounded),
                     _buildDrawerItem(context, 'Showcase Portfolio', const WorkerPortfolioScreen(), Icons.auto_stories_rounded),

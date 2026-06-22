@@ -60,11 +60,26 @@ class _ServicesTabState extends State<ServicesTab> {
 
   List<ServiceModel> get _filteredServices {
     final list = _apiServices.isNotEmpty ? _apiServices : ServiceModel.services;
-    return list.where((service) {
+    final filteredList = list.where((service) {
       final matchesSearch = service.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           service.description.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesSearch;
     }).toList();
+
+    if (_searchQuery.isEmpty) {
+      return [
+        const ServiceModel(
+          id: 'all_services_feed',
+          title: 'All Services',
+          category: 'All',
+          iconData: Icons.all_inclusive_rounded,
+          description: 'Browse all active worker jobs, packages, and offerings from our professionals.',
+          basePrice: 0,
+        ),
+        ...filteredList
+      ];
+    }
+    return filteredList;
   }
 
   @override
