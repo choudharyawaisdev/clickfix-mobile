@@ -54,6 +54,113 @@ class _BookingsIndexScreenState extends State<BookingsIndexScreen> with SingleTi
     }
   }
 
+  void _showReviewDialog(int bookingId, int workerId, String workerName) {
+    int selectedRating = 5;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rate $workerName',
+                      style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'How was your experience with this service provider?',
+                      style: GoogleFonts.outfit(fontSize: 13, color: ClickFixTheme.textMuted),
+                    ),
+                    const SizedBox(height: 20),
+                    Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          final starIndex = index + 1;
+                          return IconButton(
+                            icon: Icon(
+                              starIndex <= selectedRating
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              color: ClickFixTheme.primaryAmber,
+                              size: 36,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                selectedRating = starIndex;
+                              });
+                            },
+                          );
+                        }),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Your Review (Optional)',
+                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: 'Share details of your experience...',
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text('Cancel', style: GoogleFonts.outfit(color: ClickFixTheme.textMuted)),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final comment = commentController.text.trim();
+                            final response = await ApiService().submitReview(
+                              workerId: workerId,
+                              bookingId: bookingId,
+                              rating: selectedRating,
+                              comment: comment.isNotEmpty ? comment : null,
+                            );
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(response['message'] ?? 'Review submitted successfully!'),
+                                  backgroundColor: response['status'] == true ? Colors.green : Colors.redAccent,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          },
+                          child: Text('Submit', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   ServiceModel _getServiceModel(dynamic serviceData) {
     if (serviceData == null) return ServiceModel.services.first;
     final String serviceId = (serviceData['id'] ?? '').toString();
@@ -273,6 +380,42 @@ class _BookingsIndexScreenState extends State<BookingsIndexScreen> with SingleTi
                       ),
                     ],
                   ),
+                  if (displayStatus == 'Completed') ...[
+                    const SizedBox(height: 12),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          final worker = booking['worker'];
+                          final wId = worker != null ? worker['id'] as int? : null;
+                          if (wId != null) {
+                            _showReviewDialog(bookingId, wId, workerName);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Worker details not found for this review.'),
+                                backgroundColor: Colors.redAccent,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.star_rounded, size: 18),
+                        label: const Text('Leave a Review'),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          backgroundColor: ClickFixTheme.primaryAmber,
+                          foregroundColor: ClickFixTheme.primaryDark,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

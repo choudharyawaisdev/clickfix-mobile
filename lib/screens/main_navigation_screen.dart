@@ -38,6 +38,8 @@ import 'package:clickfix/screens/admin/profile_edit_screen.dart';
 import 'package:clickfix/screens/services_tab.dart';
 import 'package:clickfix/screens/booking_screen.dart';
 import 'package:clickfix/screens/support_tab.dart';
+import 'package:clickfix/screens/chat/conversations_screen.dart';
+import 'package:clickfix/screens/customer/notification_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -91,11 +93,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('No new notifications'),
-                  behavior: SnackBarBehavior.floating,
-                ),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationScreen()),
               );
             },
           ),
@@ -175,6 +175,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       Icons.info_outline_rounded,
                     ),
                     _buildDrawerItem(context, 'Track My Bookings', const BookingsIndexScreen(), Icons.calendar_month_rounded),
+                    _buildDrawerItem(context, 'Chat Inbox', const ConversationsScreen(), Icons.forum_rounded),
                     _buildDrawerItem(context, 'Saved Wishlist', const WishlistIndexScreen(), Icons.favorite_rounded),
                     _buildDrawerItem(context, 'View My Profile', const CustomerProfileDetailsScreen(), Icons.account_circle_rounded),
                     _buildDrawerItem(context, 'Edit Preferences', const CustomerProfileEditScreen(), Icons.edit_note_rounded),
@@ -185,6 +186,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     _buildDrawerItem(context, 'Edit Offered Rates', const WorkerJobworkerEditScreen(), Icons.edit_attributes_rounded),
                     _buildDrawerItem(context, 'Showcase Portfolio', const WorkerPortfolioScreen(), Icons.auto_stories_rounded),
                     _buildDrawerItem(context, 'Manage Active Bookings', const WorkerBookingsScreen(), Icons.assignment_rounded),
+                    _buildDrawerItem(context, 'Chat Inbox', const ConversationsScreen(), Icons.forum_rounded),
                     _buildDrawerItem(context, 'View Worker Profile', const WorkerProfileDetailsScreen(), Icons.contact_page_rounded),
                     _buildDrawerItem(context, 'Edit Skills Bio', const WorkerProfileEditScreen(), Icons.edit),
                   ] else if (role == 'admin') ...[

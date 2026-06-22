@@ -4,6 +4,7 @@ import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/screens/booking_screen.dart';
 import 'package:clickfix/screens/customer/job_details_screen.dart';
+import 'package:clickfix/screens/customer/job_profile_details_screen.dart';
 import 'package:clickfix/services/api_service.dart';
 
 class WorkerServicesScreen extends StatefulWidget {
@@ -205,11 +206,22 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
                               final price = double.tryParse((job['price'] ?? '0').toString()) ?? service.basePrice;
                               final desc = job['description'] ?? 'Expert home service provider.';
 
+                              final int jobId = job['id'] as int? ?? 0;
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 12),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16.0),
-                                  child: Column(
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => JobProfileDetailsScreen(jobId: jobId),
+                                      ),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Row(
@@ -320,9 +332,10 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
+                        ),
                   ],
                 ),
               ),

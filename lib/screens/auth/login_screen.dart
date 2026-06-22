@@ -236,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               keyboardType: TextInputType.emailAddress,
                               style: GoogleFonts.outfit(fontSize: 15),
                               decoration: InputDecoration(
-                                hintText: 'Enter your email',
+                                hintText: 'Enter email or phone number',
                                 prefixIcon: Icon(
                                   Icons.mail_outline_rounded,
                                   color: isDark ? Colors.white70 : ClickFixTheme.textMuted,
@@ -244,8 +244,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) return 'Please enter email';
-                                if (!value.contains('@')) return 'Please enter valid email';
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter email or phone number';
+                                }
                                 return null;
                               },
                             ),

@@ -28,6 +28,17 @@ class ApiService {
     return headersMap;
   }
 
+  // Generate request headers for Multipart requests (no Content-Type specified manually)
+  Map<String, String> get multipartHeaders {
+    final Map<String, String> headersMap = {
+      'Accept': 'application/json',
+    };
+    if (token != null) {
+      headersMap['Authorization'] = 'Bearer $token';
+    }
+    return headersMap;
+  }
+
   // ── 1. Authentication APIs ──────────────────────────────────────────────
 
   /// POST /api/register
@@ -40,29 +51,41 @@ class ApiService {
     int? serviceId,
     required String password,
     required String passwordConfirmation,
+    String? profilePicturePath,
   }) async {
     try {
-      final body = {
-        'name': name,
-        'email': email,
-        'phone_number': phoneNumber,
-        'city': city,
-        'role': role.toLowerCase(),
-        if (role.toLowerCase() == 'worker' && serviceId != null) 'service_id': serviceId,
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-      };
+      final uri = Uri.parse('$baseUrl/register');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(multipartHeaders);
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/register'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: json.encode(body),
-      );
+      request.fields['name'] = name;
+      request.fields['email'] = email;
+      request.fields['phone_number'] = phoneNumber;
+      request.fields['city'] = city;
+      request.fields['role'] = role.toLowerCase();
+      if (role.toLowerCase() == 'worker' && serviceId != null) {
+        request.fields['service_id'] = serviceId.toString();
+      }
+      request.fields['password'] = password;
+      request.fields['password_confirmation'] = passwordConfirmation;
 
-      return _handleResponse(response);
+      if (profilePicturePath != null && profilePicturePath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      final result = _handleResponse(response);
+      if (result['status'] == true && result.containsKey('data')) {
+        final data = result['data'];
+        if (data is Map && data.containsKey('access_token')) {
+          token = data['access_token'];
+        } else if (result.containsKey('access_token')) {
+          token = result['access_token'];
+        }
+      }
+      return result;
     } catch (e) {
       return {'status': false, 'message': 'Registration request failed: $e'};
     }
@@ -84,8 +107,12 @@ class ApiService {
       );
 
       final result = _handleResponse(response);
-      if (result['status'] == true && result.containsKey('access_token')) {
-        token = result['access_token'];
+      if (result['status'] == true) {
+        if (result.containsKey('access_token')) {
+          token = result['access_token'];
+        } else if (result.containsKey('data') && result['data'] is Map && result['data'].containsKey('access_token')) {
+          token = result['data']['access_token'];
+        }
       }
       return result;
     } catch (e) {
@@ -135,24 +162,28 @@ class ApiService {
     String? passwordConfirmation,
     int? serviceId,
     String? description,
+    String? profilePicturePath,
   }) async {
     try {
-      final body = {
-        'name': name,
-        'email': email,
-        if (phoneNumber != null) 'phone_number': phoneNumber,
-        if (city != null) 'city': city,
-        if (password != null) 'password': password,
-        if (passwordConfirmation != null) 'password_confirmation': passwordConfirmation,
-        if (serviceId != null) 'service_id': serviceId,
-        if (description != null) 'description': description,
-      };
+      final uri = Uri.parse('$baseUrl/profile/update');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(multipartHeaders);
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/profile/update'),
-        headers: headers,
-        body: json.encode(body),
-      );
+      request.fields['name'] = name;
+      request.fields['email'] = email;
+      if (phoneNumber != null) request.fields['phone_number'] = phoneNumber;
+      if (city != null) request.fields['city'] = city;
+      if (password != null) request.fields['password'] = password;
+      if (passwordConfirmation != null) request.fields['password_confirmation'] = passwordConfirmation;
+      if (serviceId != null) request.fields['service_id'] = serviceId.toString();
+      if (description != null) request.fields['description'] = description;
+
+      if (profilePicturePath != null && profilePicturePath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('profile_picture', profilePicturePath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
       return _handleResponse(response);
     } catch (e) {
       return {'status': false, 'message': 'Failed to update profile: $e'};
@@ -779,6 +810,77 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       return {'status': false, 'message': 'Failed to set active status: $e'};
+    }
+  }
+
+  // ── 9. New Chat / Messenger APIs (REST API Directory Flow) ─────────────────
+
+  /// GET /api/chat/conversations
+  Future<Map<String, dynamic>> getChatConversations() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/conversations'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch conversations: $e'};
+    }
+  }
+
+  /// GET /api/chat/messages/{user_id}
+  Future<Map<String, dynamic>> getChatMessageHistory(int userId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/messages/$userId'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch message history: $e'};
+    }
+  }
+
+  /// POST /api/chat/send
+  Future<Map<String, dynamic>> sendChatMessageNew({
+    required int toId,
+    String? body,
+    String? attachmentPath,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/chat/send');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(multipartHeaders);
+
+      request.fields['to_id'] = toId.toString();
+      if (body != null) {
+        request.fields['body'] = body;
+      }
+
+      if (attachmentPath != null && attachmentPath.isNotEmpty) {
+        request.files.add(await http.MultipartFile.fromPath('attachment', attachmentPath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to send chat message: $e'};
+    }
+  }
+
+  // ── 10. Live Notification Center ─────────────────────────────────────────
+
+  /// GET /api/notifications
+  Future<Map<String, dynamic>> getNotifications() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/notifications'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to retrieve notifications: $e'};
     }
   }
 
