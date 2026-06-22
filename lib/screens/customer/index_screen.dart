@@ -7,6 +7,7 @@ import 'package:clickfix/services/location_service.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/screens/customer/job_details_screen.dart';
 import 'package:clickfix/screens/booking_screen.dart';
+import 'package:clickfix/widgets/clickfix_logo.dart';
 
 class CustomerIndexScreen extends StatefulWidget {
   const CustomerIndexScreen({super.key});
@@ -322,6 +323,8 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
 
     return Scaffold(
       body: SafeArea(
+        // [SCREEN LAYOUT SETTINGS] 
+        // SafeArea ensures content does not overlap with status bar and notch.
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
@@ -329,6 +332,10 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
             children: [
               // 1. Hero / Location Search Section
               Container(
+                // [PADDINGS & MARGINS CONFIGURATION]
+                // - Left & Right (20px): Sets the primary horizontal screen margin.
+                // - Top (16px): Sets the spacing from the status bar area.
+                // - Bottom (24px): Spacing before categories grid.
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -377,16 +384,12 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                             ),
                           ],
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withOpacity(0.08) : Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isDark ? Colors.white10 : ClickFixTheme.borderGray),
-                          ),
-                          child: IconButton(
-                            icon: const Icon(Icons.shopping_bag_outlined),
-                            onPressed: () {},
-                          ),
+                        // [CLICKFIX BRANDING LOGO]
+                        // Replaced the shopping cart button. Direct customer-to-pro marketplace without intermediate cart.
+                        const ClickFixLogo(
+                          vertical: false,
+                          iconSize: 28,
+                          fontSize: 14,
                         ),
                       ],
                     ),

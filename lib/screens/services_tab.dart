@@ -195,7 +195,7 @@ class _ServicesTabState extends State<ServicesTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Icon & Category
+              // Icon Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -210,20 +210,6 @@ class _ServicesTabState extends State<ServicesTab> {
                       color: ClickFixTheme.primaryAmber,
                       size: 20,
                     ),
-                  ),
-                  Row(
-                    children: [
-                      const Icon(Icons.star_rounded, color: ClickFixTheme.primaryAmber, size: 14),
-                      const SizedBox(width: 2),
-                      Text(
-                        service.rating,
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : ClickFixTheme.textDark,
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -246,7 +232,7 @@ class _ServicesTabState extends State<ServicesTab> {
                     Expanded(
                       child: Text(
                         service.description,
-                        maxLines: 3,
+                        maxLines: 4,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
                           fontSize: 11,
@@ -259,47 +245,21 @@ class _ServicesTabState extends State<ServicesTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Divider & Price/Action
-              Column(
+              // Bottom Row with Navigation Arrow
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Divider(color: isDark ? Colors.white10 : ClickFixTheme.borderGray, height: 1),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Starts at',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              color: ClickFixTheme.textMuted,
-                            ),
-                          ),
-                          Text(
-                            'Rs. ${service.basePrice.toStringAsFixed(0)}',
-                            style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: ClickFixTheme.primaryAmber,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: ClickFixTheme.primaryDark,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: ClickFixTheme.primaryDark,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.arrow_forward_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                   ),
                 ],
               ),
