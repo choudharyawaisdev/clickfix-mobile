@@ -15,6 +15,7 @@ import 'package:clickfix/screens/customer/wishlist_index_screen.dart';
 import 'package:clickfix/screens/customer/profile_details_screen.dart';
 import 'package:clickfix/screens/customer/profile_edit_screen.dart';
 import 'package:clickfix/screens/customer/my_posted_jobs_screen.dart';
+import 'package:clickfix/screens/customer/post_job_screen.dart';
 
 // Worker screens
 import 'package:clickfix/screens/worker/jobworker_index_screen.dart';
@@ -269,41 +270,41 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   // DYNAMIC ROLE SIDEBAR MENUS
                   if (role == 'customer') ...[
                     _buildDrawerHeader('CUSTOMER MENU', Colors.blue, isDark),
-                    _buildDrawerItem(context, 'Home Index Feed', const CustomerIndexScreen(), Icons.home_rounded),
+                    _buildDrawerItem(context, 'Home Index Feed', CustomerIndexScreen(), Icons.home_rounded),
                     _buildDrawerItem(
                       context,
                       'Available Services',
-                      const WorkerServicesScreen(serviceCategory: 'Maintenance'),
+                      WorkerServicesScreen(serviceCategory: 'Maintenance'),
                       Icons.engineering_rounded,
                     ),
-                    _buildDrawerItem(context, 'Post a Job', const PostJobScreen(), Icons.add_circle_outline_rounded),
-                    _buildDrawerItem(context, 'My Posted Jobs & Bids', const MyPostedJobsScreen(), Icons.gavel_rounded),
-                    _buildDrawerItem(context, 'Track My Bookings', const BookingsIndexScreen(), Icons.calendar_month_rounded),
-                    _buildDrawerItem(context, 'Chat Inbox', const ConversationsScreen(), Icons.forum_rounded),
-                    _buildDrawerItem(context, 'Saved Wishlist', const WishlistIndexScreen(), Icons.favorite_rounded),
-                    _buildDrawerItem(context, 'View My Profile', const CustomerProfileDetailsScreen(), Icons.account_circle_rounded),
-                    _buildDrawerItem(context, 'Edit Preferences', const CustomerProfileEditScreen(), Icons.edit_note_rounded),
+                    _buildDrawerItem(context, 'Post a Job', PostJobScreen(), Icons.add_circle_outline_rounded),
+                    _buildDrawerItem(context, 'My Posted Jobs & Bids', MyPostedJobsScreen(), Icons.gavel_rounded),
+                    _buildDrawerItem(context, 'Track My Bookings', BookingsIndexScreen(), Icons.calendar_month_rounded),
+                    _buildDrawerItem(context, 'Chat Inbox', ConversationsScreen(), Icons.forum_rounded),
+                    _buildDrawerItem(context, 'Saved Wishlist', WishlistIndexScreen(), Icons.favorite_rounded),
+                    _buildDrawerItem(context, 'View My Profile', CustomerProfileDetailsScreen(), Icons.account_circle_rounded),
+                    _buildDrawerItem(context, 'Edit Preferences', CustomerProfileEditScreen(), Icons.edit_note_rounded),
                   ] else if (role == 'worker') ...[
                     _buildDrawerHeader('WORKER MENU', Colors.teal, isDark),
-                    _buildDrawerItem(context, 'Dashboard Hub', const WorkerJobworkerIndexScreen(), Icons.space_dashboard_rounded),
-                    _buildDrawerItem(context, 'Customer Jobs Feed', const CustomerJobsFeedScreen(), Icons.gavel_rounded),
-                    _buildDrawerItem(context, 'Offer New Skill Listing', const WorkerJobworkerCreateScreen(), Icons.add_box_rounded),
-                    _buildDrawerItem(context, 'Edit Offered Rates', const WorkerJobworkerEditScreen(), Icons.edit_attributes_rounded),
-                    _buildDrawerItem(context, 'Showcase Portfolio', const WorkerPortfolioScreen(), Icons.auto_stories_rounded),
-                    _buildDrawerItem(context, 'Manage Active Bookings', const WorkerBookingsScreen(), Icons.assignment_rounded),
-                    _buildDrawerItem(context, 'Chat Inbox', const ConversationsScreen(), Icons.forum_rounded),
-                    _buildDrawerItem(context, 'View Worker Profile', const WorkerProfileDetailsScreen(), Icons.contact_page_rounded),
-                    _buildDrawerItem(context, 'Edit Skills Bio', const WorkerProfileEditScreen(), Icons.edit),
+                    _buildDrawerItem(context, 'Dashboard Hub', WorkerJobworkerIndexScreen(), Icons.space_dashboard_rounded),
+                    _buildDrawerItem(context, 'Customer Jobs Feed', CustomerJobsFeedScreen(), Icons.gavel_rounded),
+                    _buildDrawerItem(context, 'Offer New Skill Listing', WorkerJobworkerCreateScreen(), Icons.add_box_rounded),
+                    _buildDrawerItem(context, 'Edit Offered Rates', WorkerJobworkerEditScreen(), Icons.edit_attributes_rounded),
+                    _buildDrawerItem(context, 'Showcase Portfolio', WorkerPortfolioScreen(), Icons.auto_stories_rounded),
+                    _buildDrawerItem(context, 'Manage Active Bookings', WorkerBookingsScreen(), Icons.assignment_rounded),
+                    _buildDrawerItem(context, 'Chat Inbox', ConversationsScreen(), Icons.forum_rounded),
+                    _buildDrawerItem(context, 'View Worker Profile', WorkerProfileDetailsScreen(), Icons.contact_page_rounded),
+                    _buildDrawerItem(context, 'Edit Skills Bio', WorkerProfileEditScreen(), Icons.edit),
                   ] else if (role == 'admin') ...[
                     _buildDrawerHeader('ADMIN MENU', Colors.deepOrange, isDark),
-                    _buildDrawerItem(context, 'Control Panel Dashboard', const AdminDashboardScreen(), Icons.admin_panel_settings_rounded),
-                    _buildDrawerItem(context, 'Configure Services DB', const AdminServicesIndexScreen(), Icons.settings_applications_rounded),
-                    _buildDrawerItem(context, 'Platform Blogs Board', const AdminBlogsIndexScreen(), Icons.rss_feed_rounded),
-                    _buildDrawerItem(context, 'Compose New Article', const AdminBlogsCreateScreen(), Icons.post_add_rounded),
-                    _buildDrawerItem(context, 'Modify Draft Blog', const AdminBlogsEditScreen(), Icons.edit_note_rounded),
-                    _buildDrawerItem(context, 'Moderate Registered Pros', const AdminWorkersIndexScreen(), Icons.badge_rounded),
-                    _buildDrawerItem(context, 'Approve & Moderate Reviews', const AdminReviewsIndexScreen(), Icons.rate_review_rounded),
-                    _buildDrawerItem(context, 'Edit Admin Details', const AdminProfileEditScreen(), Icons.manage_accounts_rounded),
+                    _buildDrawerItem(context, 'Control Panel Dashboard', AdminDashboardScreen(), Icons.admin_panel_settings_rounded),
+                    _buildDrawerItem(context, 'Configure Services DB', AdminServicesIndexScreen(), Icons.settings_applications_rounded),
+                    _buildDrawerItem(context, 'Platform Blogs Board', AdminBlogsIndexScreen(), Icons.rss_feed_rounded),
+                    _buildDrawerItem(context, 'Compose New Article', AdminBlogsCreateScreen(), Icons.post_add_rounded),
+                    _buildDrawerItem(context, 'Modify Draft Blog', AdminBlogsEditScreen(), Icons.edit_note_rounded),
+                    _buildDrawerItem(context, 'Moderate Registered Pros', AdminWorkersIndexScreen(), Icons.badge_rounded),
+                    _buildDrawerItem(context, 'Approve & Moderate Reviews', AdminReviewsIndexScreen(), Icons.rate_review_rounded),
+                    _buildDrawerItem(context, 'Edit Admin Details', AdminProfileEditScreen(), Icons.manage_accounts_rounded),
                   ],
                   const Divider(height: 24),
                   
