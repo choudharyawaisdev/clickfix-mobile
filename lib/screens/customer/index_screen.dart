@@ -6,6 +6,7 @@ import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/location_service.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/screens/customer/job_details_screen.dart';
+import 'package:clickfix/screens/booking_screen.dart';
 
 class CustomerIndexScreen extends StatefulWidget {
   const CustomerIndexScreen({super.key});
@@ -37,6 +38,43 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
 
   List<ServiceModel> _apiServices = [];
   bool _isLoadingServices = true;
+
+  Timer? _carouselTimer;
+
+  void _startAutoPlay() {
+    _carouselTimer?.cancel();
+    _carouselTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_apiJobs.isNotEmpty) {
+        int nextPage = _activeJobIndex + 1;
+        if (nextPage >= _apiJobs.length) {
+          nextPage = 0;
+        }
+        if (_jobsSliderController.hasClients) {
+          _jobsSliderController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
+
+  ServiceModel _getServiceModel(dynamic serviceData) {
+    if (serviceData == null) return ServiceModel.services.first;
+    final String serviceId = (serviceData['id'] ?? '').toString();
+    return ServiceModel.services.firstWhere(
+      (element) => element.id == serviceId,
+      orElse: () => ServiceModel(
+        id: serviceId,
+        title: serviceData['title'] ?? serviceData['name'] ?? 'Service',
+        category: serviceData['category'] ?? 'Maintenance',
+        description: serviceData['description'] ?? '',
+        basePrice: double.tryParse((serviceData['base_price'] ?? serviceData['basePrice'] ?? '0').toString()) ?? 0,
+        iconData: Icons.engineering_rounded,
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -138,7 +176,9 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
           setState(() {
             _apiJobs = parsedJobs;
             _isLoadingJobs = false;
+            _activeJobIndex = 0;
           });
+          _startAutoPlay();
         }
       } else {
         if (mounted) {
@@ -160,6 +200,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
 
   @override
   void dispose() {
+    _carouselTimer?.cancel();
     _jobsSliderController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
@@ -614,7 +655,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
 
               _isLoadingJobs
                   ? const SizedBox(
-                      height: 190,
+                      height: 220,
                       child: Center(
                         child: CircularProgressIndicator(
                           valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
@@ -636,7 +677,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   /// Horizontal carousel displaying matching live jobs from API
   Widget _buildLiveJobsCarousel(bool isDark) {
     return SizedBox(
-      height: 190,
+      height: 220,
       child: PageView.builder(
         controller: _jobsSliderController,
         itemCount: _apiJobs.length,
@@ -644,6 +685,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
           setState(() {
             _activeJobIndex = index;
           });
+          _startAutoPlay();
         },
         itemBuilder: (context, index) {
           final job = _apiJobs[index];
@@ -651,7 +693,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
 
           final String title = job['title'] ?? 'Job Post Request';
           final String price = job['price']?.toString() ?? '0';
-          final String location = job['location'] ?? 'Faisalabad';
+          final String location = job['location'] ?? (job['user'] != null ? job['user']['city'] : 'Faisalabad');
           final String desc = job['description'] ?? 'No descriptions offered.';
           final String postedBy = job['user'] != null ? (job['user']['name'] ?? 'Provider') : 'Pro Provider';
 
@@ -705,16 +747,55 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on_rounded, size: 14, color: ClickFixTheme.primaryAmber),
-                            const SizedBox(width: 4),
-                            Text(location, style: const TextStyle(fontSize: 11)),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_rounded, size: 14, color: ClickFixTheme.primaryAmber),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      location,
+                                      style: const TextStyle(fontSize: 11),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'By: $postedBy',
+                                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: ClickFixTheme.textMuted),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                        Text(
-                          'By: $postedBy',
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: ClickFixTheme.textMuted),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            final service = _getServiceModel(job['service']);
+                            final workerId = job['user'] != null ? job['user']['id'] as int? : null;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BookingScreen(
+                                  initialService: service,
+                                  workerId: workerId,
+                                  workerName: postedBy,
+                                ),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Book Now'),
                         ),
                       ],
                     ),

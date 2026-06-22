@@ -379,6 +379,409 @@ class ApiService {
     }
   }
 
+  // ── 2.3 Online Status Toggle (Worker Only) ──
+  /// POST /api/profile/toggle-online-status
+  Future<Map<String, dynamic>> toggleWorkerOnlineStatus() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/profile/toggle-online-status'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to toggle online status: $e'};
+    }
+  }
+
+  // ── 4. Worker Jobs API ──
+  /// GET /api/worker/jobs
+  Future<Map<String, dynamic>> getMyJobs() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/worker/jobs'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch my jobs: $e'};
+    }
+  }
+
+  /// POST /api/worker/jobs
+  Future<Map<String, dynamic>> storeJob({
+    required String title,
+    required int serviceId,
+    required double price,
+    required String location,
+    required String description,
+    String? imagePath,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/worker/jobs');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+
+      request.fields['title'] = title;
+      request.fields['service_id'] = serviceId.toString();
+      request.fields['price'] = price.toString();
+      request.fields['location'] = location;
+      request.fields['description'] = description;
+
+      if (imagePath != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to store job: $e'};
+    }
+  }
+
+  /// POST /api/worker/jobs/{id}
+  Future<Map<String, dynamic>> updateJob({
+    required int id,
+    required String title,
+    required int serviceId,
+    required double price,
+    required String location,
+    required String description,
+    String? imagePath,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/worker/jobs/$id');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+
+      request.fields['title'] = title;
+      request.fields['service_id'] = serviceId.toString();
+      request.fields['price'] = price.toString();
+      request.fields['location'] = location;
+      request.fields['description'] = description;
+
+      if (imagePath != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to update job: $e'};
+    }
+  }
+
+  /// DELETE /api/worker/jobs/{id}
+  Future<Map<String, dynamic>> destroyJob(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/worker/jobs/$id'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to delete job: $e'};
+    }
+  }
+
+  // ── 4.5 Worker Portfolio API ──
+  /// GET /api/worker/portfolio
+  Future<Map<String, dynamic>> getPortfolio() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/worker/portfolio'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch portfolio: $e'};
+    }
+  }
+
+  /// POST /api/worker/portfolio
+  Future<Map<String, dynamic>> storePortfolio({
+    required String imagePath,
+    String? title,
+    String? description,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/worker/portfolio');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+
+      if (title != null) request.fields['title'] = title;
+      if (description != null) request.fields['description'] = description;
+      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to store portfolio item: $e'};
+    }
+  }
+
+  /// POST /api/worker/portfolio/{id}
+  Future<Map<String, dynamic>> updatePortfolio({
+    required int id,
+    String? imagePath,
+    String? title,
+    String? description,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/worker/portfolio/$id');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+
+      if (title != null) request.fields['title'] = title;
+      if (description != null) request.fields['description'] = description;
+      if (imagePath != null) {
+        request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to update portfolio item: $e'};
+    }
+  }
+
+  /// DELETE /api/worker/portfolio/{id}
+  Future<Map<String, dynamic>> destroyPortfolio(int id) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/worker/portfolio/$id'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to delete portfolio item: $e'};
+    }
+  }
+
+  // ── 8. Admin APIs ──
+  /// PATCH /api/admin/users/{id}/status
+  Future<Map<String, dynamic>> adminUpdateUserStatus({
+    required int userId,
+    required String accountStatus,
+    String? proIcon,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/admin/users/$userId/status'),
+        headers: headers,
+        body: json.encode({
+          'account_status': accountStatus.toLowerCase(),
+          if (proIcon != null) 'pro_icon': proIcon.toLowerCase(),
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to update user status: $e'};
+    }
+  }
+
+  // ── 9. Chat / Messenger APIs ──
+  /// POST /api/chat/auth
+  Future<Map<String, dynamic>> chatAuth({required String socketId, required String channelName}) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/auth'),
+        headers: headers,
+        body: json.encode({
+          'socket_id': socketId,
+          'channel_name': channelName,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Chat auth failed: $e'};
+    }
+  }
+
+  /// POST /api/idInfo
+  Future<Map<String, dynamic>> getChatIdInfo(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/idInfo'),
+        headers: headers,
+        body: json.encode({'id': id}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch contact details: $e'};
+    }
+  }
+
+  /// POST /api/sendMessage
+  Future<Map<String, dynamic>> sendChatMessage({
+    required int id,
+    String? message,
+    String? filePath,
+    required String temporaryMsgId,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/sendMessage');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+
+      request.fields['id'] = id.toString();
+      request.fields['temporaryMsgId'] = temporaryMsgId;
+      if (message != null) request.fields['message'] = message;
+
+      if (filePath != null) {
+        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to send message: $e'};
+    }
+  }
+
+  /// POST /api/fetchMessages
+  Future<Map<String, dynamic>> fetchChatMessages(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/fetchMessages'),
+        headers: headers,
+        body: json.encode({'id': id}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch chat messages: $e'};
+    }
+  }
+
+  /// POST /api/makeSeen
+  Future<Map<String, dynamic>> makeMessagesSeen(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/makeSeen'),
+        headers: headers,
+        body: json.encode({'id': id}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to mark messages as seen: $e'};
+    }
+  }
+
+  /// GET /api/getContacts
+  Future<Map<String, dynamic>> getChatContacts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/getContacts'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch chat contacts: $e'};
+    }
+  }
+
+  /// POST /api/star
+  Future<Map<String, dynamic>> toggleFavoriteContact(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/star'),
+        headers: headers,
+        body: json.encode({'id': id}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to toggle favorite: $e'};
+    }
+  }
+
+  /// POST /api/favorites
+  Future<Map<String, dynamic>> getFavoriteContacts() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/favorites'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch favorites: $e'};
+    }
+  }
+
+  /// GET /api/search
+  Future<Map<String, dynamic>> searchChat(String input) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/search?input=${Uri.encodeComponent(input)}'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Search request failed: $e'};
+    }
+  }
+
+  /// POST /api/shared
+  Future<Map<String, dynamic>> getSharedPhotos(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/shared'),
+        headers: headers,
+        body: json.encode({'id': id}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to fetch shared photos: $e'};
+    }
+  }
+
+  /// POST /api/deleteConversation
+  Future<Map<String, dynamic>> deleteChatConversation(int id) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/deleteConversation'),
+        headers: headers,
+        body: json.encode({'id': id}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to delete conversation: $e'};
+    }
+  }
+
+  /// POST /api/updateSettings
+  Future<Map<String, dynamic>> updateChatAvatar(String avatarPath) async {
+    try {
+      final uri = Uri.parse('$baseUrl/updateSettings');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+      request.files.add(await http.MultipartFile.fromPath('avatar', avatarPath));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to update chat avatar: $e'};
+    }
+  }
+
+  /// POST /api/setActiveStatus
+  Future<Map<String, dynamic>> setChatActiveStatus(int status) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/setActiveStatus'),
+        headers: headers,
+        body: json.encode({'status': status}),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to set active status: $e'};
+    }
+  }
+
   // ── 7. Internal Helpers ──────────────────────────────────────────────────
 
   /// Parses HTTP response into JSON map and captures status errors

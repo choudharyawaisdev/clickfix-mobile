@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/api_service.dart';
+import 'package:clickfix/services/auth_service.dart';
 
 class WorkerJobworkerCreateScreen extends StatefulWidget {
   const WorkerJobworkerCreateScreen({super.key});
@@ -15,6 +16,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
   List<dynamic> _apiServices = [];
   bool _isLoadingServices = true;
   int? _selectedServiceId;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -174,22 +176,75 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: () {
-                      if (_formKey.currentState!.validate()) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Service registered successfully and pending approval'),
-                            behavior: SnackBarBehavior.floating,
-                            backgroundColor: Colors.green,
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
+                            if (_formKey.currentState!.validate()) {
+                              setState(() {
+                                _isSubmitting = true;
+                              });
+
+                              try {
+                                final currentUser = AuthService().currentUser;
+                                final double price = double.tryParse(_priceController.text) ?? 0.0;
+                                final location = currentUser?.city ?? 'Lahore';
+
+                                final response = await ApiService().storeJob(
+                                  title: _titleController.text,
+                                  serviceId: _selectedServiceId!,
+                                  price: price,
+                                  location: location,
+                                  description: _descController.text,
+                                );
+
+                                if (mounted) {
+                                  setState(() {
+                                    _isSubmitting = false;
+                                  });
+
+                                  if (response['status'] == true) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Service registered successfully!'),
+                                        behavior: SnackBarBehavior.floating,
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                    Navigator.pop(context);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(response['message'] ?? 'Failed to register service.'),
+                                        behavior: SnackBarBehavior.floating,
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  setState(() {
+                                    _isSubmitting = false;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('An error occurred: $e'),
+                                      behavior: SnackBarBehavior.floating,
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                    child: _isSubmitting
+                        ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          )
+                        : Text(
+                            'Submit Listing',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                        );
-                        Navigator.pop(context);
-                      }
-                    },
-                    child: Text(
-                      'Submit Listing',
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
                   ),
                 ),
               ],
