@@ -269,6 +269,7 @@ class AuthService {
     String? city,
     String? password,
     String? description,
+    String? profilePicturePath,
   }) async {
     if (currentUser == null) return false;
     try {
@@ -280,6 +281,7 @@ class AuthService {
         password: password,
         passwordConfirmation: password,
         description: description,
+        profilePicturePath: profilePicturePath,
       );
 
       if (result['status'] == true && result.containsKey('data')) {

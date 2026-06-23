@@ -9,6 +9,8 @@ import 'package:clickfix/screens/customer/job_details_screen.dart';
 import 'package:clickfix/screens/customer/job_profile_details_screen.dart';
 import 'package:clickfix/screens/booking_screen.dart';
 import 'package:clickfix/widgets/clickfix_logo.dart';
+import 'package:clickfix/screens/customer/worker_services_screen.dart';
+import 'package:clickfix/services/auth_service.dart';
 
 class CustomerIndexScreen extends StatefulWidget {
   const CustomerIndexScreen({super.key});
@@ -92,6 +94,10 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   @override
   void initState() {
     super.initState();
+    final user = AuthService().currentUser;
+    final defaultCity = (user?.city.isNotEmpty == true) ? user!.city : 'Faisalabad';
+    _selectedCity = LocationService.selectedCity.isNotEmpty ? LocationService.selectedCity : defaultCity;
+    LocationService.selectedCity = _selectedCity;
     _selectedService = _allServicesOption;
     _loadCities();
     _loadServices();
@@ -173,10 +179,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     final list = await LocationService.fetchCities();
     if (mounted) {
       setState(() {
-        _cities = list;
-        if (!_cities.contains(_selectedCity) && _cities.isNotEmpty) {
-          _selectedCity = _cities.first;
-        }
+        _cities = ['All Cities', ...list];
         _isLoadingCities = false;
       });
     }
@@ -188,8 +191,11 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     });
 
     try {
-      // Fetch all jobs to support multiple carousels and instant local filtering
-      final response = await ApiService().getJobs(category: null);
+      // Fetch all jobs to support multiple carousels and filter by city
+      final response = await ApiService().getJobs(
+        category: null,
+        city: _selectedCity == 'All Cities' ? null : _selectedCity,
+      );
       if (response['status'] == true && response.containsKey('data')) {
         final data = response['data'];
         List<dynamic> parsedJobs = [];
@@ -205,6 +211,12 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
         // Group jobs by category dynamically based on their service category
         final Map<String, List<dynamic>> grouped = {};
         for (var job in parsedJobs) {
+          // Client-side filtering by selected city
+          final String jobCity = job['location'] ?? (job['user'] != null ? job['user']['city'] : 'Faisalabad');
+          if (_selectedCity != 'All Cities' && jobCity.trim().toLowerCase() != _selectedCity.trim().toLowerCase()) {
+            continue;
+          }
+
           final serviceData = job['service'];
           final String cat = serviceData != null
               ? (serviceData['title'] ?? serviceData['name'] ?? 'General').toString()
@@ -257,13 +269,13 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        String query = '';
         return StatefulBuilder(
           builder: (context, setModalState) {
             final isDark = Theme.of(context).brightness == Brightness.dark;
-            final text = _searchController.text.trim();
-            final modalCities = text.isEmpty
+            final modalCities = query.trim().isEmpty
                 ? _cities
-                : _cities.where((c) => c.toLowerCase().contains(text.toLowerCase())).toList();
+                : _cities.where((c) => c.toLowerCase().contains(query.trim().toLowerCase())).toList();
 
             return Container(
               height: MediaQuery.of(context).size.height * 0.75,
@@ -294,14 +306,16 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: TextField(
-                      autofocus: true,
+                      autofocus: false,
                       decoration: InputDecoration(
                         hintText: 'Search city (e.g. Lahore, Karachi...)',
                         prefixIcon: const Icon(Icons.search_rounded),
                         fillColor: isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight,
                       ),
                       onChanged: (val) {
-                        setModalState(() {});
+                        setModalState(() {
+                          query = val;
+                        });
                       },
                     ),
                   ),
@@ -309,46 +323,51 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                   Expanded(
                     child: _isLoadingCities
                         ? const Center(child: CircularProgressIndicator())
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            itemCount: modalCities.length,
-                            itemBuilder: (context, index) {
-                              final city = modalCities[index];
-                              final isSelected = city == _selectedCity;
-                              return ListTile(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                tileColor: isSelected
-                                    ? ClickFixTheme.primaryAmber.withOpacity(0.1)
-                                    : Colors.transparent,
-                                leading: Icon(
-                                  Icons.location_on_rounded,
-                                  color: isSelected
-                                      ? ClickFixTheme.primaryAmber
-                                      : (isDark ? Colors.white38 : Colors.black38),
-                                ),
-                                title: Text(
-                                  city,
-                                  style: GoogleFonts.outfit(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        : () {
+                            final baseTextStyle = GoogleFonts.outfit(
+                              color: isDark ? Colors.white : Colors.black87,
+                            );
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              itemCount: modalCities.length,
+                              itemBuilder: (context, index) {
+                                final city = modalCities[index];
+                                final isSelected = city == _selectedCity;
+                                return ListTile(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  tileColor: isSelected
+                                      ? ClickFixTheme.primaryAmber.withOpacity(0.1)
+                                      : Colors.transparent,
+                                  leading: Icon(
+                                    Icons.location_on_rounded,
                                     color: isSelected
                                         ? ClickFixTheme.primaryAmber
-                                        : (isDark ? Colors.white : Colors.black87),
+                                        : (isDark ? Colors.white38 : Colors.black38),
                                   ),
-                                ),
-                                trailing: isSelected
-                                    ? const Icon(Icons.check_circle_rounded, color: ClickFixTheme.primaryAmber)
-                                    : null,
-                                onTap: () {
-                                  setState(() {
-                                    _selectedCity = city;
-                                  });
-                                  Navigator.pop(context);
-                                },
-                              );
-                            },
-                          ),
+                                  title: Text(
+                                    city,
+                                    style: baseTextStyle.copyWith(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? ClickFixTheme.primaryAmber : null,
+                                    ),
+                                  ),
+                                  trailing: isSelected
+                                      ? const Icon(Icons.check_circle_rounded, color: ClickFixTheme.primaryAmber)
+                                      : null,
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    setState(() {
+                                      _selectedCity = city;
+                                      LocationService.selectedCity = city;
+                                    });
+                                    _loadApiJobs();
+                                  },
+                                );
+                              },
+                            );
+                          }(),
                   ),
                 ],
               ),
@@ -427,13 +446,6 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                             ),
                           ],
                         ),
-                        // [CLICKFIX BRANDING LOGO]
-                        // Replaced the shopping cart button. Direct customer-to-pro marketplace without intermediate cart.
-                        const ClickFixLogo(
-                          vertical: false,
-                          iconSize: 28,
-                          fontSize: 14,
-                        ),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -506,23 +518,37 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                           padding: EdgeInsets.zero,
                           children: allServices
                               .where((s) => s.title.toLowerCase().contains(_searchQuery.toLowerCase()))
-                              .map((service) => ListTile(
-                                    leading: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
-                                    title: Text(service.title),
-                                    subtitle: Text('Base Rate: Rs. ${service.basePrice.toStringAsFixed(0)}'),
-                                    onTap: () {
-                                      setState(() {
-                                        _showCitySuggestions = false;
-                                        _searchQuery = '';
-                                      });
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => JobDetailsScreen(service: service),
+                              .map((service) {
+                                final activeJobs = _groupedJobs[service.title] ?? [];
+                                return ListTile(
+                                  leading: Icon(service.iconData, color: ClickFixTheme.primaryAmber),
+                                  title: Text(service.title),
+                                  subtitle: Text(
+                                    activeJobs.isNotEmpty
+                                        ? '${activeJobs.length} active provider(s) in $_selectedCity'
+                                        : 'No active providers in $_selectedCity',
+                                    style: TextStyle(
+                                      color: activeJobs.isNotEmpty ? Colors.green : Colors.orange,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    setState(() {
+                                      _showCitySuggestions = false;
+                                      _searchQuery = '';
+                                    });
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => WorkerServicesScreen(
+                                          serviceCategory: service.title,
+                                          selectedCity: _selectedCity,
                                         ),
-                                      );
-                                    },
-                                  ))
+                                      ),
+                                    );
+                                  },
+                                );
+                              })
                               .toList(),
                         ),
                       ),
@@ -770,7 +796,10 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => WorkerServicesScreen(serviceCategory: categoryTitle),
+                          builder: (context) => WorkerServicesScreen(
+                            serviceCategory: categoryTitle,
+                            selectedCity: _selectedCity,
+                          ),
                         ),
                       );
                     },

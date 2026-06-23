@@ -4,6 +4,7 @@ import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/services/auth_service.dart';
 import 'package:clickfix/screens/worker/bid_on_job_screen.dart';
+import 'package:clickfix/models/service_model.dart';
 
 class CustomerJobsFeedScreen extends StatefulWidget {
   const CustomerJobsFeedScreen({super.key});
@@ -34,23 +35,44 @@ class _CustomerJobsFeedScreenState extends State<CustomerJobsFeedScreen> {
     final response = await ApiService().getAllCustomerJobs();
     if (response['status'] == true && response.containsKey('data')) {
       final loadedJobs = response['data'] as List;
-      
+
+      // Filter: Only show jobs matching worker's service category
+      final worker = AuthService().currentUser;
+      final workerService = ServiceModel.services.firstWhere(
+        (s) => s.id == worker?.serviceId?.toString(),
+        orElse: () => const ServiceModel(
+          id: '',
+          title: '',
+          category: '',
+          iconData: Icons.engineering_rounded,
+          description: '',
+          basePrice: 0,
+        ),
+      );
+      final workerServiceTitle = workerService.title.toLowerCase().trim();
+
+      final filteredJobs = loadedJobs.where((job) {
+        final jobCategory = (job['category'] ?? '').toString().toLowerCase().trim();
+        return workerServiceTitle.isEmpty || jobCategory == workerServiceTitle;
+      }).toList();
+
       // Extract unique categories from jobs
       final cats = {'All'};
-      for (var job in loadedJobs) {
+      for (var job in filteredJobs) {
         if (job['category'] != null) {
           cats.add(job['category'].toString());
         }
       }
 
       setState(() {
-        _jobs = loadedJobs;
+        _jobs = filteredJobs;
         _categories = cats.toList();
         _isLoading = false;
       });
     } else {
       setState(() {
         _jobs = [];
+        _categories = ['All'];
         _isLoading = false;
       });
     }

@@ -6,13 +6,16 @@ import 'package:clickfix/screens/booking_screen.dart';
 import 'package:clickfix/screens/customer/job_details_screen.dart';
 import 'package:clickfix/screens/customer/job_profile_details_screen.dart';
 import 'package:clickfix/services/api_service.dart';
+import 'package:clickfix/services/location_service.dart';
 
 class WorkerServicesScreen extends StatefulWidget {
   final String serviceCategory;
+  final String? selectedCity;
 
   const WorkerServicesScreen({
     super.key,
     required this.serviceCategory,
+    this.selectedCity,
   });
 
   @override
@@ -47,7 +50,10 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
               .toList();
 
       // 2. Fetch worker jobs matching the category from API
-      final response = await ApiService().getJobs(category: isAll ? null : widget.serviceCategory);
+      final response = await ApiService().getJobs(
+        category: isAll ? null : widget.serviceCategory,
+        city: widget.selectedCity,
+      );
       List<dynamic> loadedJobs = [];
       if (response['status'] == true && response.containsKey('data')) {
         final data = response['data'];
@@ -59,6 +65,14 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
             loadedJobs = innerData;
           }
         }
+      }
+
+      // Filter loaded jobs locally by city if a city parameter is passed
+      if (widget.selectedCity != null) {
+        loadedJobs = loadedJobs.where((job) {
+          final String jobCity = job['location'] ?? (job['user'] != null ? job['user']['city'] : 'Faisalabad');
+          return jobCity.trim().toLowerCase() == widget.selectedCity!.trim().toLowerCase();
+        }).toList();
       }
 
       setState(() {
@@ -167,7 +181,7 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
                           ),
                     const SizedBox(height: 24),
                     Text(
-                      'Featured Service Providers',
+                      'Featured Service Providers in ${widget.selectedCity ?? LocationService.selectedCity}',
                       style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),

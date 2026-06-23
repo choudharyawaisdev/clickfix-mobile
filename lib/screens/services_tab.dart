@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/api_service.dart';
+import 'package:clickfix/services/location_service.dart';
 import 'package:clickfix/screens/booking_screen.dart';
 import 'package:clickfix/screens/customer/worker_services_screen.dart';
 
@@ -199,7 +200,10 @@ class _ServicesTabState extends State<ServicesTab> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => WorkerServicesScreen(serviceCategory: service.title),
+              builder: (context) => WorkerServicesScreen(
+                serviceCategory: service.title,
+                selectedCity: LocationService.selectedCity,
+              ),
             ),
           );
         },

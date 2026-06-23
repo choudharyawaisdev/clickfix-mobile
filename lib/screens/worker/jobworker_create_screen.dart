@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/services/auth_service.dart';
+import 'package:clickfix/services/location_service.dart';
 
 class WorkerJobworkerCreateScreen extends StatefulWidget {
   const WorkerJobworkerCreateScreen({super.key});
@@ -18,10 +21,97 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
   int? _selectedServiceId;
   bool _isSubmitting = false;
 
+  File? _imageFile;
+  List<String> _citiesList = [];
+  String? _selectedCity;
+
   @override
   void initState() {
     super.initState();
     _loadServices();
+
+    final user = AuthService().currentUser;
+    final userCity = user?.city ?? 'Faisalabad';
+    _citiesList = List<String>.from(LocationService.fallbackCities);
+    if (!_citiesList.contains(userCity)) {
+      _citiesList.add(userCity);
+    }
+    _citiesList.sort();
+    _selectedCity = _citiesList.contains(userCity) ? userCity : _citiesList.first;
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? ClickFixTheme.primaryDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Select Listing Image',
+                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSourceTile(Icons.photo_library_rounded, 'Gallery', () async {
+                    Navigator.pop(context);
+                    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                    if (picked != null) {
+                      setState(() {
+                        _imageFile = File(picked.path);
+                      });
+                    }
+                  }),
+                  _buildSourceTile(Icons.camera_alt_rounded, 'Camera', () async {
+                    Navigator.pop(context);
+                    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+                    if (picked != null) {
+                      setState(() {
+                        _imageFile = File(picked.path);
+                      });
+                    }
+                  }),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSourceTile(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: Border.all(color: ClickFixTheme.primaryAmber.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: ClickFixTheme.primaryAmber, size: 32),
+            const SizedBox(height: 8),
+            Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
   }
 
   void _loadServices() async {
@@ -170,6 +260,81 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                     return null;
                   },
                 ),
+                const SizedBox(height: 20),
+
+                Text(
+                  'Job Location (City)',
+                  style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: _selectedCity,
+                  items: _citiesList.map((city) {
+                    return DropdownMenuItem<String>(
+                      value: city,
+                      child: Text(city),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedCity = val;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Please select location city';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                Text(
+                  'Service Listing Image (Optional)',
+                  style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2C3034) : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: ClickFixTheme.primaryAmber.withOpacity(0.3),
+                        style: BorderStyle.solid,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: _imageFile != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              _imageFile!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                            ),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.add_photo_alternate_rounded,
+                                size: 48,
+                                color: ClickFixTheme.primaryAmber,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap to upload an image for this service',
+                                style: GoogleFonts.outfit(
+                                  color: ClickFixTheme.textMuted,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
                 const SizedBox(height: 40),
 
                 SizedBox(
@@ -185,9 +350,8 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                               });
 
                               try {
-                                final currentUser = AuthService().currentUser;
                                 final double price = double.tryParse(_priceController.text) ?? 0.0;
-                                final location = currentUser?.city ?? 'Lahore';
+                                final location = _selectedCity ?? 'Faisalabad';
 
                                 final response = await ApiService().storeJob(
                                   title: _titleController.text,
@@ -195,6 +359,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                                   price: price,
                                   location: location,
                                   description: _descController.text,
+                                  imagePath: _imageFile?.path,
                                 );
 
                                 if (mounted) {

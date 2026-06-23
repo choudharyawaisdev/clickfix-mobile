@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class LocationService {
+  static String selectedCity = 'All Cities';
+
   static const String _apiUrl =
       'https://gist.githubusercontent.com/ahmedali5530/a4f090da89989ca9e0ca04e202036c48/raw/pakistan_cities.json';
 

@@ -4,13 +4,78 @@ import 'package:clickfix/theme.dart';
 import 'package:clickfix/screens/worker/profile_edit_screen.dart';
 import 'package:clickfix/screens/auth/login_screen.dart';
 import 'package:clickfix/services/auth_service.dart';
+import 'package:clickfix/services/api_service.dart';
+import 'package:clickfix/models/service_model.dart';
 
-class WorkerProfileDetailsScreen extends StatelessWidget {
+class WorkerProfileDetailsScreen extends StatefulWidget {
   const WorkerProfileDetailsScreen({super.key});
+
+  @override
+  State<WorkerProfileDetailsScreen> createState() => _WorkerProfileDetailsScreenState();
+}
+
+class _WorkerProfileDetailsScreenState extends State<WorkerProfileDetailsScreen> {
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshProfile();
+  }
+
+  Future<void> _refreshProfile() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final response = await ApiService().getProfile();
+      if (response['status'] == true && response.containsKey('data')) {
+        if (mounted) {
+          setState(() {
+            AuthService().currentUser = ClickFixUser.fromJson(response['data']);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error refreshing worker profile: $e');
+    }
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = AuthService().currentUser;
+    final displayName = user?.name ?? 'Guest User';
+    final displayEmail = user?.email ?? 'guest@clickfix.com';
+    final phone = user?.phoneNumber ?? 'N/A';
+    final city = user?.city ?? 'Faisalabad';
+    final description = user?.description ?? 'No bio provided.';
+
+    // Resolve service category dynamically
+    final service = ServiceModel.services.firstWhere(
+      (element) => element.id == user?.serviceId?.toString(),
+      orElse: () => const ServiceModel(
+        id: '',
+        title: 'Professional Service',
+        category: 'Worker',
+        iconData: Icons.engineering_rounded,
+        description: '',
+        basePrice: 0,
+      ),
+    );
+    final serviceCategory = service.title;
+
+    final String imageUrl = user?.profilePicture != null && user!.profilePicture!.isNotEmpty
+        ? (user.profilePicture!.startsWith('http')
+            ? user.profilePicture!
+            : 'https://clickfix.hafiztalha.com/storage/${user.profilePicture}')
+        : '';
 
     return Scaffold(
       appBar: AppBar(
@@ -20,146 +85,192 @@ class WorkerProfileDetailsScreen extends StatelessWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _refreshProfile,
+            tooltip: 'Refresh Profile',
+          ),
+          IconButton(
             icon: const Icon(Icons.edit_rounded, color: ClickFixTheme.primaryAmber),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              final updated = await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) => const WorkerProfileEditScreen(),
                 ),
               );
+              if (updated == true) {
+                _refreshProfile();
+              }
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Avatar details
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: ClickFixTheme.primaryAmber, width: 3),
-                      ),
-                      child: const CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.teal,
-                        child: Text(
-                          'T',
-                          style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Hafiz Muhammad Talha',
-                      style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'Category: AC Repair & Electrical',
-                      style: GoogleFonts.outfit(fontSize: 14, color: ClickFixTheme.textMuted),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Background Verified',
-                        style: GoogleFonts.outfit(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
+      body: _isLoading && user == null
+          ? const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
               ),
-              const SizedBox(height: 28),
-
-              Text(
-                'Professional Overview',
-                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
-              ),
-              const SizedBox(height: 8),
-              Card(
+            )
+          : RefreshIndicator(
+              onRefresh: _refreshProfile,
+              color: ClickFixTheme.primaryAmber,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(20.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildInfoRow('Service Area', 'Faisalabad & Suburbs'),
-                      _buildInfoRow('Response Time', '< 30 Minutes'),
-                      _buildInfoRow('Working Hours', '09:00 AM - 08:00 PM'),
-                      _buildInfoRow('Member Since', 'Oct 2024'),
+                      // Avatar details
+                      Center(
+                        child: Column(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: ClickFixTheme.primaryAmber, width: 3),
+                              ),
+                              child: CircleAvatar(
+                                radius: 50,
+                                backgroundColor: user?.avatarColor ?? Colors.teal,
+                                backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
+                                child: imageUrl.isEmpty
+                                    ? Text(
+                                        displayName.isNotEmpty ? displayName[0].toUpperCase() : 'W',
+                                        style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+                                      )
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              displayName,
+                              style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                            Text(
+                              displayEmail,
+                              style: GoogleFonts.outfit(fontSize: 14, color: ClickFixTheme.textMuted),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Category: $serviceCategory',
+                              style: GoogleFonts.outfit(fontSize: 14, color: ClickFixTheme.primaryAmber, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'Background Verified',
+                                style: GoogleFonts.outfit(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      Text(
+                        'Professional Overview',
+                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                      ),
+                      const SizedBox(height: 8),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildInfoRow('Phone Number', phone),
+                              _buildInfoRow('Service Area / City', city),
+                              _buildInfoRow('Response Time', '< 30 Minutes'),
+                              _buildInfoRow('Working Hours', '09:00 AM - 08:00 PM'),
+                              _buildInfoRow('Member Since', 'Oct 2024'),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      Text(
+                        'Professional Bio',
+                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                      ),
+                      const SizedBox(height: 8),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            description,
+                            style: GoogleFonts.outfit(fontSize: 13, height: 1.5),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+                      Text(
+                        'Recent Reviews',
+                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
+                      ),
+                      const SizedBox(height: 12),
+
+                      _buildReviewItem('Asim Jamil', 5, 'Highly recommended! Arrived on time and solved the inverter AC board error instantly.', '2 days ago'),
+                      _buildReviewItem('Fatima Shah', 4, 'Good work but recommended some extra cabling cost.', '1 week ago'),
+
+                      const SizedBox(height: 28),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Logging out...'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                            await AuthService().logout();
+                            if (context.mounted) {
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                (route) => false,
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.logout_rounded),
+                          label: const Text('Log Out'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _showDeleteAccountDialog(context),
+                          icon: const Icon(Icons.delete_forever_rounded),
+                          label: const Text('Delete Account'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.redAccent,
+                            side: const BorderSide(color: Colors.redAccent),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 24),
-              Text(
-                'Recent Reviews',
-                style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
-              ),
-              const SizedBox(height: 12),
-
-              _buildReviewItem('Asim Jamil', 5, 'Highly recommended! Arrived on time and solved the inverter AC board error instantly.', '2 days ago'),
-              _buildReviewItem('Fatima Shah', 4, 'Good work but recommended some extra cabling cost.', '1 week ago'),
-
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Logging out...'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                    await AuthService().logout();
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(builder: (context) => const LoginScreen()),
-                        (route) => false,
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('Log Out'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _showDeleteAccountDialog(context),
-                  icon: const Icon(Icons.delete_forever_rounded),
-                  label: const Text('Delete Account'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent),
-                  ),
-                ),
-              ),
-              
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 

@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/services/auth_service.dart';
+import 'package:clickfix/services/location_service.dart';
 
 class WorkerProfileEditScreen extends StatefulWidget {
   const WorkerProfileEditScreen({super.key});
@@ -15,9 +18,12 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
-  late TextEditingController _cityController;
   late TextEditingController _addressController;
   bool _isSaving = false;
+  File? _imageFile;
+
+  List<String> _citiesList = [];
+  String? _selectedCity;
 
   @override
   void initState() {
@@ -26,8 +32,15 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
     _nameController = TextEditingController(text: user?.name ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
     _phoneController = TextEditingController(text: user?.phoneNumber ?? '');
-    _cityController = TextEditingController(text: user?.city ?? '');
     _addressController = TextEditingController(text: user?.description ?? user?.address ?? '');
+
+    final userCity = user?.city ?? 'Faisalabad';
+    _citiesList = List<String>.from(LocationService.fallbackCities);
+    if (!_citiesList.contains(userCity)) {
+      _citiesList.add(userCity);
+    }
+    _citiesList.sort();
+    _selectedCity = _citiesList.contains(userCity) ? userCity : _citiesList.first;
   }
 
   @override
@@ -35,9 +48,82 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _cityController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? ClickFixTheme.primaryDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Select Profile Picture',
+                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildSourceTile(Icons.photo_library_rounded, 'Gallery', () async {
+                    Navigator.pop(context);
+                    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                    if (picked != null) {
+                      setState(() {
+                        _imageFile = File(picked.path);
+                      });
+                    }
+                  }),
+                  _buildSourceTile(Icons.camera_alt_rounded, 'Camera', () async {
+                    Navigator.pop(context);
+                    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+                    if (picked != null) {
+                      setState(() {
+                        _imageFile = File(picked.path);
+                      });
+                    }
+                  }),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSourceTile(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 100,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          border: Border.all(color: ClickFixTheme.primaryAmber.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: ClickFixTheme.primaryAmber, size: 32),
+            const SizedBox(height: 8),
+            Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -51,8 +137,9 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
-      city: _cityController.text.trim(),
+      city: _selectedCity,
       description: _addressController.text.trim(),
+      profilePicturePath: _imageFile?.path,
     );
 
     setState(() {
@@ -86,6 +173,12 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final user = AuthService().currentUser;
 
+    final String imageUrl = user?.profilePicture != null && user!.profilePicture!.isNotEmpty
+        ? (user.profilePicture!.startsWith('http')
+            ? user.profilePicture!
+            : 'https://clickfix.hafiztalha.com/storage/${user.profilePicture}')
+        : '';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -105,23 +198,44 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: ClickFixTheme.primaryAmber, width: 3),
-                          ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundColor: user?.avatarColor ?? Colors.teal,
-                            child: Text(
-                              (user?.name.isNotEmpty == true) ? user!.name[0].toUpperCase() : 'U',
-                              style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+                    child: GestureDetector(
+                      onTap: _pickImage,
+                      child: Stack(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(color: ClickFixTheme.primaryAmber, width: 3),
+                            ),
+                            child: CircleAvatar(
+                              radius: 50,
+                              backgroundColor: user?.avatarColor ?? Colors.teal,
+                              backgroundImage: _imageFile != null
+                                  ? FileImage(_imageFile!)
+                                  : (imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null) as ImageProvider?,
+                              child: _imageFile == null && imageUrl.isEmpty
+                                  ? Text(
+                                      (user?.name.isNotEmpty == true) ? user!.name[0].toUpperCase() : 'U',
+                                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white),
+                                    )
+                                  : null,
                             ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: CircleAvatar(
+                              backgroundColor: ClickFixTheme.primaryAmber,
+                              radius: 18,
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                color: ClickFixTheme.primaryDark,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -188,10 +302,21 @@ class _WorkerProfileEditScreenState extends State<WorkerProfileEditScreen> {
                               style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
                             ),
                             const SizedBox(height: 6),
-                            TextFormField(
-                              controller: _cityController,
+                            DropdownButtonFormField<String>(
+                              value: _selectedCity,
+                              items: _citiesList.map((city) {
+                                return DropdownMenuItem<String>(
+                                  value: city,
+                                  child: Text(city),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                setState(() {
+                                  _selectedCity = val;
+                                });
+                              },
                               validator: (value) {
-                                if (value == null || value.trim().isEmpty) return 'Please enter city';
+                                if (value == null || value.isEmpty) return 'Please select city';
                                 return null;
                               },
                             ),

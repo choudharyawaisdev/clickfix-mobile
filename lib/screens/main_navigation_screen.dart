@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:clickfix/widgets/clickfix_logo.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/auth_service.dart';
+import 'package:clickfix/services/location_service.dart';
 import 'package:clickfix/screens/auth/login_screen.dart';
 
 // Customer screens
@@ -124,22 +125,39 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const ClickFixLogo(
-          vertical: false,
-          iconSize: 32,
-          fontSize: 18,
-        ),
-        actions: [
-          // Elegant Drawer Trigger Button
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu_rounded, color: ClickFixTheme.primaryAmber),
-              onPressed: () {
-                Scaffold.of(context).openDrawer();
-              },
-              tooltip: 'Open Sidebar Menu',
+        automaticallyImplyLeading: false,
+        leading: Builder(
+          builder: (context) => Padding(
+            padding: const EdgeInsets.only(left: 12.0),
+            child: Center(
+              child: InkWell(
+                onTap: () => Scaffold.of(context).openDrawer(),
+                borderRadius: BorderRadius.circular(20),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: avatarColor,
+                  child: Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
+        ),
+        title: Text(
+          'ClickFix',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+            color: isDark ? Colors.white : ClickFixTheme.textDark,
+          ),
+        ),
+        actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none_rounded),
             onPressed: () {
@@ -275,7 +293,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     _buildDrawerItem(
                       context,
                       'Available Services',
-                      WorkerServicesScreen(serviceCategory: 'Maintenance'),
+                      WorkerServicesScreen(
+                        serviceCategory: 'Maintenance',
+                        selectedCity: LocationService.selectedCity,
+                      ),
                       Icons.engineering_rounded,
                     ),
                     _buildDrawerItem(context, 'Post a Job', PostJobScreen(), Icons.add_circle_outline_rounded),
