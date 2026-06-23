@@ -16,8 +16,6 @@ import 'package:clickfix/screens/customer/bookings_index_screen.dart';
 import 'package:clickfix/screens/customer/wishlist_index_screen.dart';
 import 'package:clickfix/screens/customer/profile_details_screen.dart';
 import 'package:clickfix/screens/customer/profile_edit_screen.dart';
-import 'package:clickfix/screens/customer/my_posted_jobs_screen.dart';
-import 'package:clickfix/screens/customer/post_job_screen.dart';
 
 // Worker screens
 import 'package:clickfix/screens/worker/jobworker_index_screen.dart';
@@ -27,7 +25,6 @@ import 'package:clickfix/screens/worker/portfolio_screen.dart';
 import 'package:clickfix/screens/worker/bookings_screen.dart';
 import 'package:clickfix/screens/worker/profile_details_screen.dart';
 import 'package:clickfix/screens/worker/profile_edit_screen.dart';
-import 'package:clickfix/screens/worker/customer_jobs_feed_screen.dart';
 
 // Admin screens
 import 'package:clickfix/screens/admin/dashboard_screen.dart';
@@ -260,7 +257,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                   ),
                                 ),
                                 Text(
-                                  role == 'customer' ? 'Offer services & bid on jobs' : 'Post jobs & book services',
+                                  role == 'customer' ? 'Switch to worker mode' : 'Switch to customer mode',
                                   style: GoogleFonts.outfit(
                                     fontSize: 10,
                                     color: ClickFixTheme.textMuted,
@@ -299,8 +296,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       ),
                       Icons.engineering_rounded,
                     ),
-                    _buildDrawerItem(context, 'Post a Job', PostJobScreen(), Icons.add_circle_outline_rounded),
-                    _buildDrawerItem(context, 'My Posted Jobs & Bids', MyPostedJobsScreen(), Icons.gavel_rounded),
                     _buildDrawerItem(context, 'Track My Bookings', BookingsIndexScreen(), Icons.calendar_month_rounded),
                     _buildDrawerItem(context, 'Chat Inbox', ConversationsScreen(), Icons.forum_rounded),
                     _buildDrawerItem(context, 'Saved Wishlist', WishlistIndexScreen(), Icons.favorite_rounded),
@@ -309,9 +304,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   ] else if (role == 'worker') ...[
                     _buildDrawerHeader('WORKER MENU', Colors.teal, isDark),
                     _buildDrawerItem(context, 'Dashboard Hub', WorkerJobworkerIndexScreen(), Icons.space_dashboard_rounded),
-                    _buildDrawerItem(context, 'Customer Jobs Feed', CustomerJobsFeedScreen(), Icons.gavel_rounded),
-                    _buildDrawerItem(context, 'Offer New Skill Listing', WorkerJobworkerCreateScreen(), Icons.add_box_rounded),
-                    _buildDrawerItem(context, 'Edit Offered Rates', WorkerJobworkerEditScreen(), Icons.edit_attributes_rounded),
+                    _buildDrawerItem(context, 'Post a New Job', WorkerJobworkerCreateScreen(), Icons.add_box_rounded),
+                    _buildDrawerItem(context, 'Manage Posted Jobs', WorkerJobworkerEditScreen(), Icons.edit_attributes_rounded),
                     _buildDrawerItem(context, 'Showcase Portfolio', WorkerPortfolioScreen(), Icons.auto_stories_rounded),
                     _buildDrawerItem(context, 'Manage Active Bookings', WorkerBookingsScreen(), Icons.assignment_rounded),
                     _buildDrawerItem(context, 'Chat Inbox', ConversationsScreen(), Icons.forum_rounded),

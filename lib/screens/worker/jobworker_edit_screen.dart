@@ -210,7 +210,7 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Edit Service Listing',
+          'Edit Posted Job',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -234,13 +234,13 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No Active Service Offerings Found',
+                          'No Active Posted Jobs Found',
                           style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'You haven\'t registered any services yet. Create one to start offering your rates.',
+                          'You haven\'t posted any jobs yet. Create one to start attracting bookings.',
                           style: GoogleFonts.outfit(color: ClickFixTheme.textMuted, fontSize: 14),
                           textAlign: TextAlign.center,
                         ),
@@ -255,7 +255,7 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
                             );
                           },
                           icon: const Icon(Icons.add_box_rounded),
-                          label: const Text('Offer New Service'),
+                          label: const Text('Post a New Job'),
                         ),
                       ],
                     ),
@@ -271,7 +271,7 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Update your service offerings and save changes.',
+                            'Update your posted job details and save changes.',
                             style: GoogleFonts.outfit(color: ClickFixTheme.textMuted, fontSize: 14),
                           ),
                           const SizedBox(height: 24),
@@ -477,7 +477,7 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
                                             if (response['status'] == true) {
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 const SnackBar(
-                                                  content: Text('Service details updated successfully'),
+                                                  content: Text('Job details updated successfully'),
                                                   behavior: SnackBarBehavior.floating,
                                                   backgroundColor: Colors.green,
                                                 ),
@@ -486,7 +486,7 @@ class _WorkerJobworkerEditScreenState extends State<WorkerJobworkerEditScreen> {
                                             } else {
                                               ScaffoldMessenger.of(context).showSnackBar(
                                                 SnackBar(
-                                                  content: Text(response['message'] ?? 'Failed to update service.'),
+                                                  content: Text(response['message'] ?? 'Failed to update job.'),
                                                   behavior: SnackBarBehavior.floating,
                                                   backgroundColor: Colors.redAccent,
                                                 ),

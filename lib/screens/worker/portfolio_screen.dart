@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:clickfix/services/api_service.dart';
 
 class WorkerPortfolioScreen extends StatefulWidget {
@@ -63,6 +64,81 @@ class _WorkerPortfolioScreenState extends State<WorkerPortfolioScreen> {
     final descController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
+    File? selectedImageFile;
+
+    Widget buildSourceTile(IconData icon, String label, VoidCallback onTap) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          width: 100,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: ClickFixTheme.primaryAmber.withOpacity(0.3)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: ClickFixTheme.primaryAmber, size: 32),
+              const SizedBox(height: 8),
+              Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Future<void> pickImage(StateSetter setDialogState) async {
+      final picker = ImagePicker();
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+          return Container(
+            decoration: BoxDecoration(
+              color: isDark ? ClickFixTheme.primaryDark : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Select Project Image',
+                  style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    buildSourceTile(Icons.photo_library_rounded, 'Gallery', () async {
+                      Navigator.pop(sheetContext);
+                      final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                      if (picked != null) {
+                        setDialogState(() {
+                          selectedImageFile = File(picked.path);
+                        });
+                      }
+                    }),
+                    buildSourceTile(Icons.camera_alt_rounded, 'Camera', () async {
+                      Navigator.pop(sheetContext);
+                      final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+                      if (picked != null) {
+                        setDialogState(() {
+                          selectedImageFile = File(picked.path);
+                        });
+                      }
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          );
+        },
+      );
+    }
 
     showDialog(
       context: context,
@@ -70,110 +146,400 @@ class _WorkerPortfolioScreenState extends State<WorkerPortfolioScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                'Add Portfolio Project',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-              ),
-              content: Form(
-                key: formKey,
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final bgColor = isDark ? ClickFixTheme.primaryDark : Colors.white;
+            final textColor = isDark ? Colors.white : ClickFixTheme.textDark;
+            final inputBg = isDark ? const Color(0xFF1E2124) : Colors.grey.shade50;
+            final borderColor = isDark ? Colors.white12 : Colors.black12;
+
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 400),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withOpacity(0.08) : Colors.black.withOpacity(0.05),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.5 : 0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      TextFormField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Project Title'),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) return 'Please enter title';
-                          return null;
-                        },
+                      // Header
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: ClickFixTheme.primaryAmber.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.auto_stories_rounded,
+                                color: ClickFixTheme.primaryAmber,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Add New Project',
+                              style: GoogleFonts.outfit(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: descController,
-                        decoration: const InputDecoration(labelText: 'Description'),
-                        maxLines: 3,
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) return 'Please enter description';
-                          return null;
-                        },
+                      
+                      // Divider
+                      Container(
+                        height: 1,
+                        color: borderColor,
+                        width: double.infinity,
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Note: A standard showcase image will be auto-generated and uploaded for this project.',
-                        style: GoogleFonts.outfit(fontSize: 11, color: ClickFixTheme.textMuted),
-                        textAlign: TextAlign.center,
+
+                      // Form content
+                      Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Form(
+                          key: formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title Field
+                              Text(
+                                'Project Title',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: ClickFixTheme.primaryAmber,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: titleController,
+                                style: GoogleFonts.outfit(fontSize: 14, color: textColor),
+                                decoration: InputDecoration(
+                                  hintText: 'e.g. Living Room AC Installation',
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  prefixIcon: const Icon(Icons.title_rounded, color: ClickFixTheme.primaryAmber, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: borderColor),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: ClickFixTheme.primaryAmber, width: 1.5),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Colors.redAccent),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                                  ),
+                                ),
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) return 'Please enter project title';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Description Field
+                              Text(
+                                'Description',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: ClickFixTheme.primaryAmber,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: descController,
+                                style: GoogleFonts.outfit(fontSize: 14, color: textColor),
+                                maxLines: 3,
+                                decoration: InputDecoration(
+                                  hintText: 'Describe what work you performed, materials used, etc.',
+                                  filled: true,
+                                  fillColor: inputBg,
+                                  prefixIcon: const Icon(Icons.description_outlined, color: ClickFixTheme.primaryAmber, size: 20),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: borderColor),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: ClickFixTheme.primaryAmber, width: 1.5),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Colors.redAccent),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                                  ),
+                                ),
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) return 'Please enter project description';
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Project Image Upload Area
+                              Text(
+                                'Project Image',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: ClickFixTheme.primaryAmber,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              GestureDetector(
+                                onTap: () => pickImage(setDialogState),
+                                child: Container(
+                                  height: 140,
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: inputBg,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: selectedImageFile != null 
+                                          ? ClickFixTheme.primaryAmber.withOpacity(0.5) 
+                                          : borderColor,
+                                      width: selectedImageFile != null ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: selectedImageFile != null
+                                      ? Stack(
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius: BorderRadius.circular(16),
+                                              child: Image.file(
+                                                selectedImageFile!,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: double.infinity,
+                                              ),
+                                            ),
+                                            // Semi-transparent overlay on hover/tap hint
+                                            Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.4),
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                              child: Center(
+                                                child: Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    const Icon(Icons.photo_library_rounded, color: Colors.white, size: 28),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      'Change Image',
+                                                      style: GoogleFonts.outfit(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            // Close button to remove image
+                                            Positioned(
+                                              top: 8,
+                                              right: 8,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setDialogState(() {
+                                                    selectedImageFile = null;
+                                                  });
+                                                },
+                                                child: const CircleAvatar(
+                                                  backgroundColor: Colors.black54,
+                                                  radius: 12,
+                                                  child: Icon(Icons.close, color: Colors.white, size: 14),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.add_photo_alternate_rounded,
+                                              size: 40,
+                                              color: ClickFixTheme.primaryAmber.withOpacity(0.8),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Tap to upload project image',
+                                              style: GoogleFonts.outfit(
+                                                color: ClickFixTheme.textMuted,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Supports Camera or Gallery',
+                                              style: GoogleFonts.outfit(
+                                                color: ClickFixTheme.textMuted.withOpacity(0.6),
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Action Buttons
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: isSaving ? null : () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  side: BorderSide(color: borderColor),
+                                ),
+                                child: Text(
+                                  'Cancel',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white70 : ClickFixTheme.textDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: isSaving
+                                    ? null
+                                    : () async {
+                                        if (formKey.currentState!.validate()) {
+                                          if (selectedImageFile == null) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Please upload a project image'),
+                                                behavior: SnackBarBehavior.floating,
+                                                backgroundColor: Colors.redAccent,
+                                              ),
+                                            );
+                                            return;
+                                          }
+
+                                          setDialogState(() {
+                                            isSaving = true;
+                                          });
+
+                                          try {
+                                            final response = await ApiService().storePortfolio(
+                                              imagePath: selectedImageFile!.path,
+                                              title: titleController.text,
+                                              description: descController.text,
+                                            );
+
+                                            if (response['status'] == true) {
+                                              Navigator.pop(context);
+                                              _loadPortfolio();
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Portfolio item added successfully!'),
+                                                  backgroundColor: Colors.green,
+                                                  behavior: SnackBarBehavior.floating,
+                                                ),
+                                              );
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(response['message'] ?? 'Failed to add portfolio item.'),
+                                                  backgroundColor: Colors.redAccent,
+                                                  behavior: SnackBarBehavior.floating,
+                                                ),
+                                              );
+                                            }
+                                          } catch (e) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Error: $e'),
+                                                backgroundColor: Colors.redAccent,
+                                                behavior: SnackBarBehavior.floating,
+                                              ),
+                                            );
+                                          } finally {
+                                            setDialogState(() {
+                                              isSaving = false;
+                                            });
+                                          }
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: ClickFixTheme.primaryAmber,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 2,
+                                ),
+                                child: isSaving
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryDark),
+                                        ),
+                                      )
+                                    : Text(
+                                        'Save Project',
+                                        style: GoogleFonts.outfit(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: ClickFixTheme.primaryDark,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(context),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          if (formKey.currentState!.validate()) {
-                            setDialogState(() {
-                              isSaving = true;
-                            });
-
-                            try {
-                              final imagePath = await _createDummyImageFile();
-                              final response = await ApiService().storePortfolio(
-                                imagePath: imagePath,
-                                title: titleController.text,
-                                description: descController.text,
-                              );
-
-                              if (response['status'] == true) {
-                                Navigator.pop(context);
-                                _loadPortfolio();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Portfolio item added successfully!'),
-                                    backgroundColor: Colors.green,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(response['message'] ?? 'Failed to add portfolio item.'),
-                                    backgroundColor: Colors.redAccent,
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error: $e'),
-                                  backgroundColor: Colors.redAccent,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            } finally {
-                              setDialogState(() {
-                                isSaving = false;
-                              });
-                            }
-                          }
-                        },
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)),
-                        )
-                      : const Text('Save'),
-                ),
-              ],
             );
           },
         );

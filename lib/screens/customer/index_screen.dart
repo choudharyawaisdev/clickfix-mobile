@@ -208,6 +208,8 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
           }
         }
 
+        parsedJobs.shuffle(); // Shuffle jobs randomly so different services/workers appear first each load
+
         // Group jobs by category dynamically based on their service category
         final Map<String, List<dynamic>> grouped = {};
         for (var job in parsedJobs) {
@@ -736,6 +738,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   /// Displays consecutive horizontal lists for each category that has active listings
   Widget _buildGroupedCarousels(bool isDark) {
     final categories = _groupedJobs.keys.where((cat) => _groupedJobs[cat]!.isNotEmpty).toList();
+    categories.shuffle(); // Shuffle the categories randomly
     
     if (categories.isEmpty) {
       return _buildEmptyJobsState(isDark);
@@ -824,7 +827,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
             ),
             
             SizedBox(
-              height: 335,
+              height: 255,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -832,7 +835,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                 itemCount: jobs.length,
                 itemBuilder: (context, jobIndex) {
                   final job = jobs[jobIndex];
-                  return _buildServiceJobCard(job, isDark);
+                  return _buildServiceJobCard(job, isDark, context);
                 },
               ),
             ),
@@ -896,7 +899,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
           ),
         ),
         SizedBox(
-          height: 335,
+          height: 255,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -904,7 +907,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
             itemCount: jobs.length,
             itemBuilder: (context, jobIndex) {
               final job = jobs[jobIndex];
-              return _buildServiceJobCard(job, isDark);
+              return _buildServiceJobCard(job, isDark, context);
             },
           ),
         ),
@@ -913,12 +916,11 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   }
 
   /// Custom Service Card layout matching image specifications
-  Widget _buildServiceJobCard(dynamic job, bool isDark) {
+  Widget _buildServiceJobCard(dynamic job, bool isDark, BuildContext context) {
     final int jobId = job['id'] as int? ?? 0;
     final String title = job['title'] ?? 'Job Service';
     final String price = job['price']?.toString() ?? '0';
     final String location = job['location'] ?? (job['user'] != null ? job['user']['city'] : 'Faisalabad');
-    final String desc = job['description'] ?? 'Expert service provider.';
     
     final workerUser = job['user'];
     final int workerId = workerUser != null ? (workerUser['id'] as int? ?? 0) : 0;
@@ -927,7 +929,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     final service = _getServiceModel(job['service']);
     final bool isWishlisted = _wishlistedWorkerIds.contains(workerId);
 
-    // Format price with comma separation if possible
+    // Format price
     String formattedPrice = price;
     try {
       final doubleVal = double.tryParse(price);
@@ -939,9 +941,11 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
       }
     } catch (_) {}
 
+    final double cardWidth = (MediaQuery.of(context).size.width - 44) / 2;
+
     return Container(
-      width: 250,
-      margin: const EdgeInsets.only(right: 14, bottom: 8, top: 4),
+      width: cardWidth,
+      margin: const EdgeInsets.only(right: 12, bottom: 8, top: 4),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF2C3034) : Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -959,252 +963,224 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Image Area
-            Container(
-              height: 120,
-              width: double.infinity,
-              color: isDark ? const Color(0xFF34383C) : Colors.grey.shade200,
-              child: Stack(
-                children: [
-                  // Cover placeholder text
-                  Center(
-                    child: Text(
-                      'Service',
-                      style: GoogleFonts.outfit(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-                  
-                  // Price Tag top-left
-                  Positioned(
-                    top: 10,
-                    left: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: RichText(
-                        text: TextSpan(
-                          text: 'Rs. ',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            color: ClickFixTheme.primaryAmber,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: formattedPrice,
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                color: ClickFixTheme.textDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  // Wishlist button top-right
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: () async {
-                        if (workerId != 0) {
-                          final res = await ApiService().toggleWishlist(workerId);
-                          if (res['status'] == true) {
-                            setState(() {
-                              if (isWishlisted) {
-                                _wishlistedWorkerIds.remove(workerId);
-                              } else {
-                                _wishlistedWorkerIds.add(workerId);
-                              }
-                            });
-                            
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(res['message'] ?? 'Wishlist updated'),
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            }
-                          }
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                          color: isWishlisted ? Colors.red : Colors.black45,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => JobProfileDetailsScreen(jobId: jobId),
               ),
-            ),
-            
-            // Content
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            );
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Image Area
+              Container(
+                height: 90,
+                width: double.infinity,
+                color: isDark ? const Color(0xFF34383C) : Colors.grey.shade200,
+                child: Stack(
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Title
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: isDark ? Colors.white : ClickFixTheme.textDark,
-                            height: 1.2,
-                          ),
+                    // Cover placeholder text
+                    Center(
+                      child: Text(
+                        'Service',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04),
+                          letterSpacing: 1.5,
                         ),
-                        const SizedBox(height: 6),
-                        
-                        // Location
-                        Row(
-                          children: [
-                            const Icon(Icons.location_on_rounded, size: 14, color: Colors.redAccent),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                location,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.white60 : Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        
-                        // Description
-                        Text(
-                          desc,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            color: isDark ? Colors.white54 : Colors.grey.shade600,
-                            height: 1.3,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                     
-                    Column(
-                      children: [
-                        const Divider(height: 1, thickness: 0.5),
-                        const SizedBox(height: 8),
-                        
-                        // Worker Info
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 12,
-                              backgroundColor: ClickFixTheme.primaryAmber,
-                              child: Text(
-                                workerName.isNotEmpty ? workerName[0].toUpperCase() : 'W',
-                                style: GoogleFonts.outfit(
-                                  color: Colors.white, 
-                                  fontSize: 10, 
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '$workerName (${service.title})',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white70 : ClickFixTheme.textDark,
-                                ),
-                              ),
+                    // Price Tag top-left
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        
-                        // View Service Button
-                        SizedBox(
-                          width: double.infinity,
-                          height: 36,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => JobProfileDetailsScreen(jobId: jobId),
-                                ),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: ClickFixTheme.primaryAmber,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Text(
-                              'View Service',
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                        child: Text(
+                          'Rs. $formattedPrice',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: ClickFixTheme.primaryDark,
                           ),
                         ),
-                      ],
+                      ),
+                    ),
+                    
+                    // Wishlist button top-right
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (workerId != 0) {
+                            final res = await ApiService().toggleWishlist(workerId);
+                            if (res['status'] == true) {
+                              setState(() {
+                                if (isWishlisted) {
+                                  _wishlistedWorkerIds.remove(workerId);
+                                } else {
+                                  _wishlistedWorkerIds.add(workerId);
+                                }
+                              });
+                              
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(res['message'] ?? 'Wishlist updated'),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              }
+                            }
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isWishlisted ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                            color: isWishlisted ? Colors.red : Colors.black45,
+                            size: 13,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              
+              // Content
+              Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark ? Colors.white : ClickFixTheme.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    
+                    // Location
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded, size: 12, color: Colors.redAccent),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: isDark ? Colors.white60 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, thickness: 0.5),
+                    const SizedBox(height: 8),
+                    
+                    // Worker Info
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 10,
+                          backgroundColor: ClickFixTheme.primaryAmber,
+                          child: Text(
+                            workerName.isNotEmpty ? workerName[0].toUpperCase() : 'W',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white, 
+                              fontSize: 8, 
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            workerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white70 : ClickFixTheme.textDark,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    
+                    // View Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 28,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => JobProfileDetailsScreen(jobId: jobId),
+                            ),
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ClickFixTheme.primaryAmber,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        child: Text(
+                          'View Service',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

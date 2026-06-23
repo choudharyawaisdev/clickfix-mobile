@@ -157,7 +157,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Register New Service',
+          'Post a New Job',
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
         ),
       ),
@@ -171,7 +171,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Define your expertise, price, and descriptions to attract customers.',
+                  'Define job details, price, and descriptions to attract bookings.',
                   style: GoogleFonts.outfit(color: ClickFixTheme.textMuted, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
@@ -370,7 +370,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                                   if (response['status'] == true) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Service registered successfully!'),
+                                        content: Text('Job posted successfully!'),
                                         behavior: SnackBarBehavior.floating,
                                         backgroundColor: Colors.green,
                                       ),
@@ -379,7 +379,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(response['message'] ?? 'Failed to register service.'),
+                                        content: Text(response['message'] ?? 'Failed to post job.'),
                                         behavior: SnackBarBehavior.floating,
                                         backgroundColor: Colors.redAccent,
                                       ),
@@ -407,7 +407,7 @@ class _WorkerJobworkerCreateScreenState extends State<WorkerJobworkerCreateScree
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           )
                         : Text(
-                            'Submit Listing',
+                            'Post Job',
                             style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                   ),
