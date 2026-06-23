@@ -204,6 +204,19 @@ class ApiService {
     }
   }
 
+  /// DELETE /api/profile/delete
+  Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/profile/delete'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to delete account: $e'};
+    }
+  }
+
   // ── 3. Public Services & Jobs APIs ──────────────────────────────────────
 
   /// GET /api/services

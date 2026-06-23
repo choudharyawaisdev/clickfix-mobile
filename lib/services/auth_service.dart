@@ -215,6 +215,21 @@ class AuthService {
     await clearSession();
   }
 
+  /// Deletes the user account permanently on the backend and wipes the local session.
+  Future<bool> deleteAccount() async {
+    try {
+      final result = await ApiService().deleteAccount();
+      currentUser = null;
+      await clearSession();
+      return result['status'] == true;
+    } catch (e) {
+      debugPrint('Error deleting account: $e');
+      currentUser = null;
+      await clearSession();
+      return false;
+    }
+  }
+
   /// Switches user role dynamically between customer and worker via API.
   Future<bool> switchRole() async {
     try {

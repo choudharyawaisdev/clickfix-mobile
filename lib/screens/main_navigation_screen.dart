@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:clickfix/widgets/clickfix_logo.dart';
 import 'package:clickfix/models/service_model.dart';
 import 'package:clickfix/services/auth_service.dart';
@@ -308,6 +309,28 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   ],
                   const Divider(height: 24),
                   
+                  // Privacy Policy Button
+                  ListTile(
+                    leading: const Icon(Icons.privacy_tip_rounded, color: ClickFixTheme.primaryAmber, size: 20),
+                    title: Text(
+                      'Privacy Policy',
+                      style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    dense: true,
+                    onTap: () async {
+                      final uri = Uri.parse('https://clickfix.hafiztalha.com/privacy-policy');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Could not open Privacy Policy link.')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+
                   // Logout Button
                   ListTile(
                     leading: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 20),

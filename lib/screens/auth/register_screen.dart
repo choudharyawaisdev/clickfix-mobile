@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:clickfix/services/auth_service.dart';
 import 'package:clickfix/services/api_service.dart';
 import 'package:clickfix/services/location_service.dart';
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
+  bool _agreeToPrivacy = false;
 
   List<dynamic> _apiServices = [];
   bool _isLoadingServices = false;
@@ -113,6 +115,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleRegister() async {
+    if (!_agreeToPrivacy) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You must agree to the Privacy Policy to proceed.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     if (_formKey.currentState!.validate()) {
       if (_passwordController.text != _confirmPasswordController.text) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -684,7 +696,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
+
+                          // Privacy Policy Prominent Disclosure Consent
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: Checkbox(
+                                  value: _agreeToPrivacy,
+                                  activeColor: ClickFixTheme.primaryAmber,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _agreeToPrivacy = val ?? false;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _agreeToPrivacy = !_agreeToPrivacy;
+                                    });
+                                  },
+                                  child: RichText(
+                                    text: TextSpan(
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 12,
+                                        color: isDark ? Colors.white70 : ClickFixTheme.textDark,
+                                      ),
+                                      children: [
+                                        const TextSpan(text: 'I agree to the collection of my profile details in accordance with the '),
+                                        WidgetSpan(
+                                          alignment: PlaceholderAlignment.middle,
+                                          child: GestureDetector(
+                                            onTap: () async {
+                                              final uri = Uri.parse('https://clickfix.hafiztalha.com/privacy-policy');
+                                              if (await canLaunchUrl(uri)) {
+                                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                              }
+                                            },
+                                            child: Text(
+                                              'Privacy Policy',
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 12,
+                                                color: ClickFixTheme.primaryAmber,
+                                                fontWeight: FontWeight.bold,
+                                                decoration: TextDecoration.underline,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const TextSpan(text: '.'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
 
                           // Submit Button (Next)
                           InteractiveButton(

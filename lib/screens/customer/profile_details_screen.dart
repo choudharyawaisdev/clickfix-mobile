@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:clickfix/theme.dart';
 import 'package:clickfix/screens/customer/profile_edit_screen.dart';
+import 'package:clickfix/screens/auth/login_screen.dart';
+import 'package:clickfix/services/auth_service.dart';
 
 class CustomerProfileDetailsScreen extends StatelessWidget {
   const CustomerProfileDetailsScreen({super.key});
@@ -103,16 +105,37 @@ class CustomerProfileDetailsScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Logging out...'),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
+                    await AuthService().logout();
+                    if (context.mounted) {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                        (route) => false,
+                      );
+                    }
                   },
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Log Out'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _showDeleteAccountDialog(context),
+                  icon: const Icon(Icons.delete_forever_rounded),
+                  label: const Text('Delete Account'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                     side: const BorderSide(color: Colors.redAccent),
@@ -124,6 +147,79 @@ class CustomerProfileDetailsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(
+            'Delete Account',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.redAccent),
+          ),
+          content: Text(
+            'Are you sure you want to permanently delete your account? This action cannot be undone and you will lose all bookings and profile information.',
+            style: GoogleFonts.outfit(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.outfit(color: ClickFixTheme.textMuted),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext); // Close dialog
+                _performDeleteAccount(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                'Delete',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _performDeleteAccount(BuildContext context) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(ClickFixTheme.primaryAmber),
+        ),
+      ),
+    );
+
+    final success = await AuthService().deleteAccount();
+
+    if (context.mounted) {
+      Navigator.pop(context); // Close loader
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Account deleted successfully' : 'Account deletion requested successfully.'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: success ? Colors.green : Colors.redAccent,
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+        (route) => false,
+      );
+    }
   }
 
   Widget _buildSectionHeader(String title, bool isDark) {
