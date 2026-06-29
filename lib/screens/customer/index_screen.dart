@@ -827,7 +827,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
             ),
             
             SizedBox(
-              height: 255,
+              height: 285,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 physics: const BouncingScrollPhysics(),
@@ -899,7 +899,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
           ),
         ),
         SizedBox(
-          height: 255,
+          height: 285,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -921,6 +921,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
     final String title = job['title'] ?? 'Job Service';
     final String price = job['price']?.toString() ?? '0';
     final String location = job['location'] ?? (job['user'] != null ? job['user']['city'] : 'Faisalabad');
+    final String desc = job['description'] ?? 'Expert service provider.';
     
     final workerUser = job['user'];
     final int workerId = workerUser != null ? (workerUser['id'] as int? ?? 0) : 0;
@@ -1107,6 +1108,17 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      desc,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        color: isDark ? Colors.white54 : Colors.grey.shade600,
+                        height: 1.25,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Divider(height: 1, thickness: 0.5),

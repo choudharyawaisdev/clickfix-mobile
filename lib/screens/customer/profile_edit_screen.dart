@@ -19,6 +19,7 @@ class _CustomerProfileEditScreenState extends State<CustomerProfileEditScreen> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
   late TextEditingController _addressController;
+  late TextEditingController _cityController;
   bool _isSaving = false;
   File? _imageFile;
 
@@ -41,6 +42,7 @@ class _CustomerProfileEditScreenState extends State<CustomerProfileEditScreen> {
     }
     _citiesList.sort();
     _selectedCity = _citiesList.contains(userCity) ? userCity : _citiesList.first;
+    _cityController = TextEditingController(text: _selectedCity);
   }
 
   @override
@@ -49,7 +51,118 @@ class _CustomerProfileEditScreenState extends State<CustomerProfileEditScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
     super.dispose();
+  }
+
+  void _showCityPickerBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final modalCities = query.trim().isEmpty
+                ? _citiesList
+                : _citiesList.where((c) => c.toLowerCase().contains(query.trim().toLowerCase())).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: isDark ? ClickFixTheme.primaryDark : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Select Your City',
+                    style: GoogleFonts.outfit(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: TextField(
+                      autofocus: false,
+                      decoration: InputDecoration(
+                        hintText: 'Search city (e.g. Lahore, Karachi...)',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        fillColor: isDark ? const Color(0xFF2C3034) : ClickFixTheme.primaryLight,
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          query = val;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: modalCities.length,
+                      itemBuilder: (context, index) {
+                        final city = modalCities[index];
+                        final isSelected = city == _selectedCity;
+                        final baseTextStyle = GoogleFonts.outfit(
+                          color: isDark ? Colors.white : Colors.black87,
+                        );
+                        return ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          tileColor: isSelected
+                              ? ClickFixTheme.primaryAmber.withOpacity(0.1)
+                              : Colors.transparent,
+                          leading: Icon(
+                            Icons.location_on_rounded,
+                            color: isSelected
+                                ? ClickFixTheme.primaryAmber
+                                : (isDark ? Colors.white38 : Colors.black38),
+                          ),
+                          title: Text(
+                            city,
+                            style: baseTextStyle.copyWith(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              color: isSelected ? ClickFixTheme.primaryAmber : null,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle_rounded, color: ClickFixTheme.primaryAmber)
+                              : null,
+                          onTap: () {
+                            Navigator.pop(context);
+                            setState(() {
+                              _selectedCity = city;
+                              _cityController.text = city;
+                            });
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _pickImage() async {
@@ -306,21 +419,19 @@ class _CustomerProfileEditScreenState extends State<CustomerProfileEditScreen> {
                               style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
                             ),
                             const SizedBox(height: 6),
-                            DropdownButtonFormField<String>(
-                              value: _selectedCity,
-                              items: _citiesList.map((city) {
-                                return DropdownMenuItem<String>(
-                                  value: city,
-                                  child: Text(city),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedCity = val;
-                                });
-                              },
+                            TextFormField(
+                              controller: _cityController,
+                              readOnly: true,
+                              onTap: _showCityPickerBottomSheet,
+                              decoration: const InputDecoration(
+                                hintText: 'Select City',
+                                prefixIcon: Icon(Icons.location_on_rounded, color: ClickFixTheme.primaryAmber),
+                                suffixIcon: Icon(Icons.arrow_drop_down_rounded, color: ClickFixTheme.primaryAmber),
+                              ),
                               validator: (value) {
-                                if (value == null || value.isEmpty) return 'Please select city';
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please select city';
+                                }
                                 return null;
                               },
                             ),
