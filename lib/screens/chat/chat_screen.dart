@@ -95,9 +95,95 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _markMessagesAsSeen() async {
     try {
-      // Trigger makeSeen endpoint if it exists
-      await ApiService().makeMessagesSeen(widget.receiverId);
+      await ApiService().markChatAsSeen(widget.receiverId);
     } catch (_) {}
+  }
+
+  void _showReactionSheet(int messageId, String? currentReaction) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2C3034) : Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 10,
+                  spreadRadius: 2,
+                )
+              ]
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: ['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) {
+                final isSelected = currentReaction == emoji;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _toggleReaction(messageId, emoji);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? ClickFixTheme.primaryAmber.withOpacity(0.2) : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      emoji,
+                      style: const TextStyle(fontSize: 28),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _toggleReaction(int messageId, String reaction) async {
+    int index = _messages.indexWhere((m) => m['id'] == messageId);
+    if (index == -1) return;
+
+    final originalReaction = _messages[index]['reaction'];
+    
+    setState(() {
+      if (_messages[index]['reaction'] == reaction) {
+        _messages[index]['reaction'] = null;
+      } else {
+        _messages[index]['reaction'] = reaction;
+      }
+    });
+
+    try {
+      final response = await ApiService().toggleChatMessageReaction(messageId, reaction);
+      if (response['status'] != true) {
+        setState(() {
+          _messages[index]['reaction'] = originalReaction;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response['message'] ?? 'Failed to update reaction.'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _messages[index]['reaction'] = originalReaction;
+      });
+    }
   }
 
   void _scrollToBottom() {
@@ -294,11 +380,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           final msg = _messages[index];
                           final int fromId = msg['from_id'] ?? 0;
                           final bool isMe = fromId == currentUserId;
-                          final String body = msg['body'] ?? '';
-                          final String time = _formatMessageTime(msg['created_at']);
-                          final String? attachment = msg['attachment'];
 
-                          return _buildMessageBubble(body, time, isMe, attachment, isDark);
+                          return _buildMessageBubble(msg, isMe, isDark);
                         },
                       ),
           ),
@@ -366,7 +449,11 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(String body, String time, bool isMe, String? attachment, bool isDark) {
+  Widget _buildMessageBubble(Map<String, dynamic> msg, bool isMe, bool isDark) {
+    final String body = msg['body'] ?? '';
+    final String time = _formatMessageTime(msg['created_at']);
+    final String? attachment = msg['attachment'];
+
     // Bubble design system alignment
     final Color bg = isMe
         ? ClickFixTheme.primaryAmber
@@ -378,66 +465,114 @@ class _ChatScreenState extends State<ChatScreen> {
         ? ClickFixTheme.primaryDark.withOpacity(0.6)
         : ClickFixTheme.textMuted;
 
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 16),
-          ),
+    final String? reaction = msg['reaction']?.toString() ?? 
+        (msg['reactions'] is List && msg['reactions'].isNotEmpty 
+            ? msg['reactions'].first['reaction']?.toString() 
+            : null);
+
+    final bubbleContainer = Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: Radius.circular(isMe ? 16 : 4),
+          bottomRight: Radius.circular(isMe ? 4 : 16),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle Attachment rendering
-            if (attachment != null && attachment.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  // Resolve domain links properly
-                  attachment.startsWith('http') ? attachment : 'https://clickfix.hafiztalha.com/storage/$attachment',
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    padding: const EdgeInsets.all(12),
-                    color: Colors.black.withOpacity(0.05),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.image_not_supported_rounded, color: Colors.grey, size: 16),
-                        const SizedBox(width: 6),
-                        Text('Attachment failed', style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey)),
-                      ],
-                    ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle Attachment rendering
+          if (attachment != null && attachment.isNotEmpty) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                // Resolve domain links properly
+                attachment.startsWith('http') ? attachment : 'https://clickfix.hafiztalha.com/storage/$attachment',
+                errorBuilder: (context, error, stackTrace) => Container(
+                  padding: const EdgeInsets.all(12),
+                  color: Colors.black.withOpacity(0.05),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.image_not_supported_rounded, color: Colors.grey, size: 16),
+                      const SizedBox(width: 6),
+                      Text('Attachment failed', style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey)),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
-            ],
-            
-            if (body.isNotEmpty)
-              Text(
-                body,
-                style: GoogleFonts.outfit(fontSize: 13, color: textCol),
-              ),
-            const SizedBox(height: 4),
-            
-            // Time Indicator
-            Align(
-              alignment: Alignment.bottomRight,
-              child: Text(
-                time,
-                style: GoogleFonts.outfit(fontSize: 9, color: timeCol, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 6),
+          ],
+          
+          if (body.isNotEmpty)
+            Text(
+              body,
+              style: GoogleFonts.outfit(fontSize: 13, color: textCol),
+            ),
+          const SizedBox(height: 4),
+          
+          // Time Indicator
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Text(
+              time,
+              style: GoogleFonts.outfit(fontSize: 9, color: timeCol, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          GestureDetector(
+            onLongPress: () {
+              final int? msgId = msg['id'] as int?;
+              if (msgId != null) {
+                _showReactionSheet(msgId, reaction);
+              }
+            },
+            child: bubbleContainer,
+          ),
+          if (reaction != null && reaction.isNotEmpty)
+            Positioned(
+              bottom: 4,
+              right: isMe ? null : -4,
+              left: isMe ? -4 : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E2124) : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? Colors.white10 : Colors.grey.shade300,
+                    width: 1,
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    )
+                  ],
+                ),
+                child: Text(
+                  reaction,
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

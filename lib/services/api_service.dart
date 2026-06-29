@@ -883,6 +883,48 @@ class ApiService {
     }
   }
 
+  /// POST /api/chat/reaction/{message}
+  Future<Map<String, dynamic>> toggleChatMessageReaction(int messageId, String reaction) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/reaction/$messageId'),
+        headers: headers,
+        body: json.encode({
+          'reaction': reaction,
+        }),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to toggle reaction: $e'};
+    }
+  }
+
+  /// POST /api/chat/seen/{userId}
+  Future<Map<String, dynamic>> markChatAsSeen(int userId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/chat/seen/$userId'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to mark chat as seen: $e'};
+    }
+  }
+
+  /// GET /api/chat/search
+  Future<Map<String, dynamic>> searchUsersForChat(String query) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/chat/search?query=${Uri.encodeComponent(query)}&input=${Uri.encodeComponent(query)}'),
+        headers: headers,
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return {'status': false, 'message': 'Failed to search users: $e'};
+    }
+  }
+
   // ── 10. Live Notification Center ─────────────────────────────────────────
 
   /// GET /api/notifications
