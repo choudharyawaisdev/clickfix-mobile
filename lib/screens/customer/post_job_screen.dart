@@ -24,14 +24,88 @@ class _PostJobScreenState extends State<PostJobScreen> {
 
   final List<String> _categories = ServiceModel.services.map((s) => s.title).toList();
 
+  String? _selectedCity;
+  String? _selectedArea;
+
+  final Map<String, List<String>> _cityAreas = {
+    'Faisalabad': [
+      'Peoples Colony No. 1',
+      'Peoples Colony No. 2',
+      'Ghulam Muhammad Abad',
+      'D Ground',
+      'Kohinoor City',
+      'Madina Town',
+      'Canal Road',
+      'Sargodha Road',
+      'Samanabad',
+      'Civil Lines',
+    ],
+    'Karachi': [
+      'Clifton',
+      'DHA',
+      'Gulshan-e-Iqbal',
+      'North Nazimabad',
+      'Saddar',
+      'Bahadurabad',
+      'Federal B Area',
+      'PECHS',
+      'Korangi',
+      'Malir',
+    ],
+    'Lahore': [
+      'Gulberg',
+      'DHA',
+      'Model Town',
+      'Johar Town',
+      'Iqbal Town',
+      'Samanabad',
+      'Walled City',
+      'Cantt',
+      'Bahria Town',
+      'Faisal Town',
+    ],
+    'Islamabad': [
+      'Blue Area',
+      'F-6',
+      'F-7',
+      'F-8',
+      'G-9',
+      'G-11',
+      'I-8',
+      'E-7',
+      'Bahria Town',
+      'DHA',
+    ],
+    'Rawalpindi': [
+      'Saddar',
+      'Satellite Town',
+      'Bahria Town',
+      'Chaklala Scheme',
+      'Commercial Market',
+      'Peshawar Road',
+      'Adiala Road',
+      'Westridge',
+      'Tench Bhata',
+    ],
+  };
+
+  void _updateLocationText() {
+    if (_selectedArea != null && _selectedCity != null) {
+      _locationController.text = '$_selectedArea, $_selectedCity';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    // Default location to current user's city
     final city = AuthService().currentUser?.city;
-    if (city != null && city.isNotEmpty) {
-      _locationController.text = city;
+    if (city != null && _cityAreas.containsKey(city)) {
+      _selectedCity = city;
+    } else {
+      _selectedCity = 'Faisalabad';
     }
+    _selectedArea = _cityAreas[_selectedCity]!.first;
+    _updateLocationText();
   }
 
   @override
@@ -290,13 +364,13 @@ class _PostJobScreenState extends State<PostJobScreen> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Location
+                      // City selection
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Job Location',
+                              'City',
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -304,23 +378,65 @@ class _PostJobScreenState extends State<PostJobScreen> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            TextFormField(
-                              controller: _locationController,
+                            DropdownButtonFormField<String>(
+                              value: _selectedCity,
                               decoration: const InputDecoration(
-                                hintText: 'e.g. Lahore',
-                                prefixIcon: Icon(Icons.location_on_rounded),
+                                prefixIcon: Icon(Icons.location_city_rounded),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Enter location';
-                                }
-                                return null;
+                              dropdownColor: isDark ? ClickFixTheme.primaryDark : Colors.white,
+                              style: GoogleFonts.outfit(color: isDark ? Colors.white : ClickFixTheme.textDark, fontSize: 14),
+                              items: _cityAreas.keys.map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
+                              onChanged: (newValue) {
+                                setState(() {
+                                  _selectedCity = newValue;
+                                  _selectedArea = _cityAreas[newValue]!.first;
+                                  _updateLocationText();
+                                });
                               },
                             ),
                           ],
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Famous Area dropdown
+                  Text(
+                    'Famous Area',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: ClickFixTheme.primaryAmber,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: _selectedArea,
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.location_on_rounded),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    ),
+                    dropdownColor: isDark ? ClickFixTheme.primaryDark : Colors.white,
+                    style: GoogleFonts.outfit(color: isDark ? Colors.white : ClickFixTheme.textDark, fontSize: 14),
+                    items: (_selectedCity != null ? _cityAreas[_selectedCity]! : <String>[]).map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (newValue) {
+                      setState(() {
+                        _selectedArea = newValue;
+                        _updateLocationText();
+                      });
+                    },
                   ),
                   const SizedBox(height: 20),
 

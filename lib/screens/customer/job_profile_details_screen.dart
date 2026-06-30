@@ -470,7 +470,7 @@ class _JobProfileDetailsScreenState extends State<JobProfileDetailsScreen> {
                     width: 52,
                     height: 52,
                     child: OutlinedButton(
-                      onPressed: () => _launchWhatsApp(workerPhone),
+                      onPressed: () => _launchCall(workerPhone),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.green,
                         side: const BorderSide(color: Colors.green, width: 1.5),
@@ -479,7 +479,7 @@ class _JobProfileDetailsScreenState extends State<JobProfileDetailsScreen> {
                         ),
                         padding: EdgeInsets.zero,
                       ),
-                      child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.green, size: 24),
+                      child: const Icon(Icons.phone_in_talk_rounded, color: Colors.green, size: 24),
                     ),
                   ),
                   const SizedBox(width: 10),

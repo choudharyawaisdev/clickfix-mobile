@@ -94,9 +94,7 @@ class _CustomerIndexScreenState extends State<CustomerIndexScreen> {
   @override
   void initState() {
     super.initState();
-    final user = AuthService().currentUser;
-    final defaultCity = (user?.city.isNotEmpty == true) ? user!.city : 'Faisalabad';
-    _selectedCity = LocationService.selectedCity.isNotEmpty ? LocationService.selectedCity : defaultCity;
+    _selectedCity = LocationService.selectedCity.isNotEmpty ? LocationService.selectedCity : 'All Cities';
     LocationService.selectedCity = _selectedCity;
     _selectedService = _allServicesOption;
     _loadCities();

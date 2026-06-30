@@ -213,16 +213,6 @@ class _WorkerProfileDetailsScreenState extends State<WorkerProfileDetailsScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 24),
-                      Text(
-                        'Recent Reviews',
-                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: ClickFixTheme.primaryAmber),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _buildReviewItem('Asim Jamil', 5, 'Highly recommended! Arrived on time and solved the inverter AC board error instantly.', '2 days ago'),
-                      _buildReviewItem('Fatima Shah', 4, 'Good work but recommended some extra cabling cost.', '1 week ago'),
-
                       const SizedBox(height: 28),
                       SizedBox(
                         width: double.infinity,
@@ -283,36 +273,6 @@ class _WorkerProfileDetailsScreenState extends State<WorkerProfileDetailsScreen>
           Text(key, style: GoogleFonts.outfit(fontSize: 13, color: ClickFixTheme.textMuted)),
           Text(value, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.bold)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildReviewItem(String author, int rating, String desc, String time) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(author, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(time, style: TextStyle(color: ClickFixTheme.textMuted, fontSize: 11)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: List.generate(
-                rating,
-                (index) => const Icon(Icons.star_rounded, color: ClickFixTheme.primaryAmber, size: 14),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(desc, style: GoogleFonts.outfit(fontSize: 12, height: 1.4)),
-          ],
-        ),
       ),
     );
   }

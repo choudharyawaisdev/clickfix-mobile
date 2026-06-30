@@ -68,7 +68,7 @@ class _WorkerServicesScreenState extends State<WorkerServicesScreen> {
       }
 
       // Filter loaded jobs locally by city if a city parameter is passed
-      if (widget.selectedCity != null) {
+      if (widget.selectedCity != null && widget.selectedCity != 'All Cities') {
         loadedJobs = loadedJobs.where((job) {
           final String jobCity = job['location'] ?? (job['user'] != null ? job['user']['city'] : 'Faisalabad');
           return jobCity.trim().toLowerCase() == widget.selectedCity!.trim().toLowerCase();
